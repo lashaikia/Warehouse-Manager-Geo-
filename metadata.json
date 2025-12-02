@@ -1,0 +1,7 @@
+{
+  "name": "Warehouse Manager (Geo)",
+  "description": "Warehouse management system with inventory tracking, inbound/outbound operations, and reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
