@@ -91,15 +91,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
             შესვლა
           </button>
         </form>
-
-        <div className="bg-gray-50 p-6 text-center border-t border-gray-100 text-xs text-gray-500">
-           <p className="font-semibold mb-2">სატესტო მომხმარებლები (User / Pass):</p>
-           <div className="space-x-4">
-             <span>admin / admin</span>
-             <span>editor / editor</span>
-             <span>viewer / viewer</span>
-           </div>
-        </div>
       </div>
     </div>
   );
