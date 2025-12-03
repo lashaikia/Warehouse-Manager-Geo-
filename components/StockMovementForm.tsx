@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
-import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User } from 'lucide-react';
 
 interface StockMovementFormProps {
   products: Product[];
@@ -13,6 +13,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState<number | string>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receiver, setReceiver] = useState('');
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
   
@@ -90,6 +91,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
       productId: selectedProduct.id,
       quantity: qtyNum,
       date,
+      receiver,
       notes,
       images
     });
@@ -189,6 +191,21 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
         </div>
 
         <div className="space-y-4 pt-4 border-t border-gray-100">
+          
+          <div className="space-y-2">
+             <label className="text-sm font-medium text-gray-700 flex items-center">
+                <User size={16} className="mr-1" />
+                {isOutbound ? 'მიმღები პირი (ვის გააქვს)' : 'მომწოდებელი (ვისგან მივიღეთ)'}
+             </label>
+             <input
+               type="text"
+               value={receiver}
+               onChange={(e) => setReceiver(e.target.value)}
+               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+               placeholder={isOutbound ? "მაგ: სახელი, გვარი ან ობიექტი..." : "მაგ: კომპანიის სახელი ან პირი..."}
+             />
+          </div>
+
           <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">შენიშვნა / აღწერილობა</label>
               <textarea
@@ -196,7 +213,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                placeholder={isOutbound ? "მაგ: ობიექტი N2, პასუხისმგებელი პირი..." : "მაგ: ინვოისი N123, მომწოდებელი შპს..."}
+                placeholder={isOutbound ? "დამატებითი დეტალები..." : "დამატებითი დეტალები..."}
               />
           </div>
 

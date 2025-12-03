@@ -31,6 +31,7 @@ export interface Transaction {
   type: 'inbound' | 'outbound';
   quantity: number;
   date: string;
+  receiver?: string; // New field: Who received/took the item
   notes?: string;
   images?: string[];
 }
