@@ -13,24 +13,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
   const activeProducts = products.filter(p => p.quantity > 0);
 
   const totalProducts = activeProducts.length;
-  const totalQuantity = activeProducts.reduce((acc, curr) => acc + curr.quantity, 0);
+  // Previously calculated totalQuantity, now removing to avoid mixed unit summation issues
   const lowStockProducts = activeProducts.filter(p => p.isLowStockTracked && (p.quantity <= p.minQuantity));
   const lowStockCount = lowStockProducts.length;
 
   const [expandedChart, setExpandedChart] = useState(false);
   const [showActiveList, setShowActiveList] = useState(false);
   const [showLowStockList, setShowLowStockList] = useState(false);
+  const [showCategoryList, setShowCategoryList] = useState(false);
   const [showSnakeGame, setShowSnakeGame] = useState(false);
 
+  // Logic Change: Count products per category (assortment size), not sum of quantities
   const categoryData = activeProducts.reduce((acc, curr) => {
     const existing = acc.find(item => item.name === curr.category);
     if (existing) {
-      existing.value += curr.quantity;
+      existing.value += 1; // Increment count of products
     } else {
-      acc.push({ name: curr.category || 'სხვა', value: curr.quantity });
+      acc.push({ name: curr.category || 'სხვა', value: 1 });
     }
     return acc;
   }, [] as { name: string; value: number }[]);
+  
+  const activeCategoriesCount = categoryData.length;
 
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -85,6 +89,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
     </div>
   );
 
+  // Category List Modal
+  const CategoryListModal = ({ onClose }: { onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col text-gray-800" onClick={e => e.stopPropagation()}>
+         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 className="text-lg font-bold text-gray-800">კატეგორიები</h3>
+            <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition"><X size={20} /></button>
+         </div>
+         <div className="p-0 overflow-y-auto flex-1 bg-white">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                    <tr>
+                        <th className="p-3">კატეგორია</th>
+                        <th className="p-3 text-right">დასახელების რაოდენობა</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-gray-800">
+                    {categoryData.sort((a,b) => b.value - a.value).map((cat, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                            <td className="p-3 font-medium text-gray-900">{cat.name}</td>
+                            <td className="p-3 text-right font-bold text-gray-900">{cat.value}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+         </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex justify-between items-center">
@@ -109,13 +143,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full">
+        {/* Changed Card: Active Categories */}
+        <div 
+            onClick={() => setShowCategoryList(true)}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md transition group"
+        >
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full group-hover:bg-emerald-600 group-hover:text-white transition">
             <Layers size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500">საერთო რაოდენობა</p>
-            <p className="text-2xl font-bold text-gray-800">{totalQuantity.toFixed(2)}</p>
+            <p className="text-sm text-gray-500">აქტიური კატეგორიები</p>
+            <p className="text-2xl font-bold text-gray-800">{activeCategoriesCount}</p>
           </div>
         </div>
 
@@ -135,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative group">
         <div className="flex justify-between items-center mb-4">
-             <h3 className="text-lg font-semibold text-gray-700">აქტიური მარაგები კატეგორიების მიხედვით</h3>
+             <h3 className="text-lg font-semibold text-gray-700">ასორტიმენტი კატეგორიების მიხედვით (დასახელება)</h3>
              <button onClick={() => setExpandedChart(true)} className="text-gray-400 hover:text-blue-600 transition"><Maximize2 size={20} /></button>
         </div>
         <div className="h-64">
@@ -143,9 +181,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
             <BarChart data={categoryData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis allowDecimals={false} /> 
                 <Tooltip 
-                formatter={(value) => [`${value} ერთეული`, 'რაოდენობა']}
+                formatter={(value) => [`${value} დასახელება`, 'რაოდენობა']}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
@@ -181,8 +219,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
                     <BarChart data={categoryData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip formatter={(value) => [`${value} ერთეული`, 'რაოდენობა']} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip formatter={(value) => [`${value} დასახელება`, 'რაოდენობა']} />
                         <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                             {categoryData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
@@ -201,6 +239,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
             items={activeProducts} 
             onClose={() => setShowActiveList(false)} 
         />
+      )}
+      
+      {/* Category List Modal */}
+      {showCategoryList && (
+          <CategoryListModal onClose={() => setShowCategoryList(false)} />
       )}
 
       {/* Low Stock Modal */}
