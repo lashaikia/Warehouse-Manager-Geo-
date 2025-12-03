@@ -172,7 +172,7 @@ export const SettingsManagement: React.FC = () => {
             <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100 flex items-start">
                 <div className="mr-2 mt-0.5">ℹ️</div>
                 <div>
-                    <strong>შენიშვნა:</strong> სახელის შეცვლის შემთხვევაში (მაგ: "სტელაჟი 1" -> "სტელაჟი A"), ყველა პროდუქტი, რომელიც ამ სტელაჟზე ირიცხებოდა, ავტომატურად განახლდება ახალ სახელზე.
+                    <strong>შენიშვნა:</strong> სახელის შეცვლის შემთხვევაში (მაგ: "სტელაჟი 1" -&gt; "სტელაჟი A"), ყველა პროდუქტი, რომელიც ამ სტელაჟზე ირიცხებოდა, ავტომატურად განახლდება ახალ სახელზე.
                 </div>
             </div>
         </div>
