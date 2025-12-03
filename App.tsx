@@ -108,6 +108,7 @@ const App = () => {
            productNomenclature: product.nomenclature,
            type,
            quantity,
+           unit: product.unit || 'pcs',
            date,
            receiver,
            notes,

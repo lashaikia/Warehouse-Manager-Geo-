@@ -1,4 +1,5 @@
 export type Role = 'admin' | 'editor' | 'viewer';
+export type Unit = 'pcs' | 'kg' | 'm' | 'l';
 
 export interface User {
   id: string;
@@ -14,6 +15,7 @@ export interface Product {
   name: string;
   category: string;
   quantity: number;
+  unit: Unit; // New field
   warehouse: string;
   rack: string;
   minQuantity: number;
@@ -30,8 +32,9 @@ export interface Transaction {
   productNomenclature: string;
   type: 'inbound' | 'outbound';
   quantity: number;
+  unit: Unit; // New field to track unit history
   date: string;
-  receiver?: string; // New field: Who received/took the item
+  receiver?: string;
   notes?: string;
   images?: string[];
 }

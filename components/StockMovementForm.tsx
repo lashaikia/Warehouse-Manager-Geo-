@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
-import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User } from 'lucide-react';
+import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale } from 'lucide-react';
 
 interface StockMovementFormProps {
   products: Product[];
@@ -24,10 +24,16 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const colorClass = isOutbound ? 'orange' : 'green';
   const title = isOutbound ? 'საქონლის გატანა' : 'საქონლის მიღება';
 
+  // For Outbound, we only show products that have Stock > 0.
+  // For Inbound, we show ALL products (to restock zero items).
+  const availableProducts = isOutbound 
+    ? products.filter(p => p.quantity > 0) 
+    : products;
+
   const handleNomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchNom(val);
-    const found = products.find(p => p.nomenclature === val);
+    const found = availableProducts.find(p => p.nomenclature === val);
     if (found) {
       setSelectedProduct(found);
       setSearchName(found.name);
@@ -40,12 +46,12 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchName(val);
-    const found = products.find(p => p.name === val);
+    const found = availableProducts.find(p => p.name === val);
     if (found) {
       setSelectedProduct(found);
       setSearchNom(found.nomenclature);
     } else {
-      const exactMatch = products.find(p => p.name === val);
+      const exactMatch = availableProducts.find(p => p.name === val);
       if(exactMatch) {
          setSelectedProduct(exactMatch);
          setSearchNom(exactMatch.nomenclature);
@@ -90,11 +96,21 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
     onSubmit({
       productId: selectedProduct.id,
       quantity: qtyNum,
+      unit: selectedProduct.unit || 'pcs',
       date,
       receiver,
       notes,
       images
     });
+  };
+
+  const getUnitLabel = (u?: string) => {
+    switch(u) {
+      case 'kg': return 'კგ';
+      case 'm': return 'მეტრი';
+      case 'l': return 'ლიტრი';
+      default: return 'ცალი';
+    }
   };
 
   return (
@@ -128,7 +144,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                   autoComplete="off"
                 />
                 <datalist id="nom-options">
-                  {products.map(p => <option key={p.id} value={p.nomenclature} />)}
+                  {availableProducts.map(p => <option key={p.id} value={p.nomenclature} />)}
                 </datalist>
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               </div>
@@ -146,7 +162,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                   autoComplete="off"
                 />
                 <datalist id="name-options">
-                  {products.map(p => <option key={p.id} value={p.name} />)}
+                  {availableProducts.map(p => <option key={p.id} value={p.name} />)}
                 </datalist>
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               </div>
@@ -156,12 +172,31 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
           {selectedProduct && (
             <div className="mt-2 p-3 bg-blue-50 text-blue-800 rounded text-sm border border-blue-100 flex justify-between">
               <span>ნაპოვნია: <strong>{selectedProduct.name}</strong></span>
-              <span>ნაშთი: <strong>{selectedProduct.quantity}</strong></span>
+              <span>ნაშთი: <strong>{selectedProduct.quantity} {getUnitLabel(selectedProduct.unit)}</strong></span>
             </div>
           )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           
+           {/* Unit Display (Read Only) */}
+           <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">საზომი ერთეული</label>
+            <div className="relative">
+              <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                disabled
+                value={selectedProduct?.unit || 'pcs'}
+                className="w-full pl-9 pr-4 p-2.5 bg-gray-100 border border-gray-200 text-gray-500 rounded-lg outline-none cursor-not-allowed appearance-none"
+              >
+                <option value="pcs">ცალი (pcs)</option>
+                <option value="kg">წონა (kg)</option>
+                <option value="m">სიგრძე (m)</option>
+                <option value="l">მოცულობა (l)</option>
+              </select>
+            </div>
+           </div>
+
            <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
                {isOutbound ? 'გასატანი რაოდენობა *' : 'მისაღები რაოდენობა *'}
@@ -169,7 +204,8 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
             <input
               required
               type="number"
-              min="1"
+              min="0"
+              step="any"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold"

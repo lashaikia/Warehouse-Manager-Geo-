@@ -12,15 +12,29 @@ interface ProductListProps {
 export const ProductList: React.FC<ProductListProps> = ({ products, userRole, onEdit, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.nomenclature.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter: Matches search term AND has quantity > 0
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.nomenclature.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Only show active products
+    return matchesSearch && product.quantity > 0;
+  });
 
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const canDelete = userRole === 'admin';
+
+  const getUnitLabel = (u?: string) => {
+    switch(u) {
+      case 'kg': return 'კგ';
+      case 'm': return 'მეტრი';
+      case 'l': return 'ლიტრი';
+      default: return 'ცალი';
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -89,7 +103,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center space-x-2">
                           <span className={`font-semibold text-lg ${isLowStock ? 'text-red-600' : 'text-gray-700'}`}>
-                            {product.quantity}
+                            {product.quantity} <span className="text-xs font-normal text-gray-500 ml-1">{getUnitLabel(product.unit)}</span>
                           </span>
                           {isLowStock && (
                             <div className="group relative">
@@ -135,7 +149,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
               ) : (
                 <tr>
                   <td colSpan={canEdit || canDelete ? 7 : 6} className="p-8 text-center text-gray-500">
-                    მონაცემები ვერ მოიძებნა
+                    {searchTerm ? 'მონაცემები ვერ მოიძებნა' : 'საწყობი ცარიელია'}
                   </td>
                 </tr>
               )}
@@ -143,7 +157,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
           </table>
         </div>
         <div className="p-4 border-t border-gray-100 bg-gray-50 text-right text-sm text-gray-500">
-          სულ: {filteredProducts.length} ჩანაწერი
+          აქტიური ჩანაწერი: {filteredProducts.length}
         </div>
       </div>
     </div>

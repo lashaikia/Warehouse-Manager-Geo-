@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Product, Transaction } from '../types';
-import { Download, Printer, Settings, Filter, X, Check, Database, Upload, Plus, Trash2, FileSpreadsheet, Package, History } from 'lucide-react';
+import { Download, Printer, Settings, Filter, X, Check, Database, Upload, Plus, Trash2, FileSpreadsheet, Package, History, ArchiveX } from 'lucide-react';
 import { getDatabaseJSON, importDatabaseJSON, getTransactions } from '../services/storage';
 
 interface ReportsProps {
@@ -22,6 +22,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
   const [activeTab, setActiveTab] = useState<ReportTab>('inventory');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showZeroStock, setShowZeroStock] = useState(false); // Toggle for zero stocks
 
   // Filters for Inventory
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -67,9 +68,16 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
 
   // Inventory Filtering Logic
   const filteredProducts = useMemo(() => {
-    if (activeFilters.length === 0) return products;
+    // Zero Stock Logic: 
+    // If showZeroStock is TRUE -> Show ONLY quantity === 0
+    // If showZeroStock is FALSE -> Show ONLY quantity > 0
+    const quantityFiltered = products.filter(p => 
+      showZeroStock ? p.quantity === 0 : p.quantity > 0
+    );
 
-    return products.filter(p => {
+    if (activeFilters.length === 0) return quantityFiltered;
+
+    return quantityFiltered.filter(p => {
       return activeFilters.every(filter => {
         switch (filter.type) {
           case 'category': return p.category === filter.value;
@@ -89,7 +97,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
         }
       });
     });
-  }, [products, activeFilters]);
+  }, [products, activeFilters, showZeroStock]);
 
   // History Filtering Logic
   const filteredTransactions = useMemo(() => {
@@ -102,9 +110,6 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
       
       const matchesType = historyType === 'all' || tx.type === historyType;
       
-      // Filter by month/year if date is selected (YYYY-MM format usually from input type='month')
-      // OR specific date if input type='date'. Let's assume input type='date' for specific day or type='month'
-      // Implementation below assumes simple string match if user provides partial date, or full match
       const matchesDate = !historyDate || tx.date.startsWith(historyDate);
 
       return matchesSearch && matchesType && matchesDate;
@@ -114,7 +119,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
   const totalProducts = filteredProducts.length;
   const totalQuantity = filteredProducts.reduce((acc, p) => acc + p.quantity, 0);
 
-  // ... Filter helper functions (addFilter, removeFilter) ...
+  // ... Filter helper functions ...
   const addFilter = () => {
     const newId = Math.random().toString(36).substr(2, 9);
     let newFilter: ActiveFilter | null = null;
@@ -156,21 +161,31 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
       return str;
   };
 
+  const getUnitLabel = (u?: string) => {
+    switch(u) {
+      case 'kg': return 'კგ';
+      case 'm': return 'მ';
+      case 'l': return 'ლ';
+      default: return 'ც';
+    }
+  };
+
   const handleExportExcel = () => {
     if (activeTab === 'inventory') {
-        const headers = ["ნომენკლატურა", "დასახელება", "კატეგორია", "საწყობი", "სტელაჟი", "რაოდენობა", "თარიღი"];
+        const headers = ["ნომენკლატურა", "დასახელება", "კატეგორია", "საწყობი", "სტელაჟი", "რაოდენობა", "ერთეული", "თარიღი"];
         const rows = filteredProducts.map(p => [
-            p.nomenclature, p.name, p.category, p.warehouse, p.rack, p.quantity, p.dateAdded
+            p.nomenclature, p.name, p.category, p.warehouse, p.rack, p.quantity, getUnitLabel(p.unit), p.dateAdded
         ]);
-        downloadCSV(headers, rows, "inventory_report");
+        downloadCSV(headers, rows, showZeroStock ? "zero_stock_report" : "inventory_report");
     } else {
-        const headers = ["თარიღი", "ტიპი", "ნომენკლატურა", "პროდუქტი", "რაოდენობა", "მიმღები/მომწოდებელი", "შენიშვნა"];
+        const headers = ["თარიღი", "ტიპი", "ნომენკლატურა", "პროდუქტი", "რაოდენობა", "ერთეული", "მიმღები/მომწოდებელი", "შენიშვნა"];
         const rows = filteredTransactions.map(tx => [
             tx.date, 
             tx.type === 'inbound' ? 'მიღება' : 'გატანა', 
             tx.productNomenclature, 
             tx.productName, 
             tx.quantity,
+            getUnitLabel(tx.unit),
             tx.receiver,
             tx.notes
         ]);
@@ -205,20 +220,25 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
     // Generate Table HTML based on active tab
     let tableHtml = '';
     if (activeTab === 'inventory') {
+        const title = showZeroStock ? "ნულოვანი ნაშთები" : "საწყობის ნაშთი";
         tableHtml = `
+          <h1>${title}</h1>
+          <p>თარიღი: ${dateStr}</p>
           <table>
             <thead>
-              <tr><th>ნომენკლატურა</th><th>დასახელება</th><th>კატეგორია</th><th>საწყობი</th><th>სტელაჟი</th><th>რაოდენობა</th><th>თარიღი</th></tr>
+              <tr><th>ნომენკლატურა</th><th>დასახელება</th><th>კატეგორია</th><th>საწყობი</th><th>სტელაჟი</th><th>რაოდენობა</th><th>ერთეული</th><th>თარიღი</th></tr>
             </thead>
             <tbody>
-              ${filteredProducts.map(p => `<tr><td>${p.nomenclature}</td><td>${p.name}</td><td>${p.category}</td><td>${p.warehouse}</td><td>${p.rack}</td><td>${p.quantity}</td><td>${p.dateAdded}</td></tr>`).join('')}
+              ${filteredProducts.map(p => `<tr><td>${p.nomenclature}</td><td>${p.name}</td><td>${p.category}</td><td>${p.warehouse}</td><td>${p.rack}</td><td>${p.quantity}</td><td>${getUnitLabel(p.unit)}</td><td>${p.dateAdded}</td></tr>`).join('')}
             </tbody>
           </table>`;
     } else {
         tableHtml = `
+          <h1>მოძრაობის ისტორია</h1>
+          <p>თარიღი: ${dateStr}</p>
           <table>
             <thead>
-              <tr><th>თარიღი</th><th>ტიპი</th><th>კოდი</th><th>პროდუქტი</th><th>რაოდენობა</th><th>მიმღები</th><th>შენიშვნა</th></tr>
+              <tr><th>თარიღი</th><th>ტიპი</th><th>კოდი</th><th>პროდუქტი</th><th>რაოდენობა</th><th>ერთეული</th><th>მიმღები</th><th>შენიშვნა</th></tr>
             </thead>
             <tbody>
               ${filteredTransactions.map(tx => `
@@ -228,6 +248,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                     <td>${tx.productNomenclature}</td>
                     <td>${tx.productName}</td>
                     <td>${tx.quantity}</td>
+                    <td>${getUnitLabel(tx.unit)}</td>
                     <td>${tx.receiver || '-'}</td>
                     <td>${tx.notes || '-'}</td>
                 </tr>`).join('')}
@@ -248,8 +269,6 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
         </style>
       </head>
       <body>
-        <h1>${activeTab === 'inventory' ? 'საწყობის ნაშთი' : 'მოძრაობის ისტორია'}</h1>
-        <p>თარიღი: ${dateStr}</p>
         ${tableHtml}
         <script>window.onload = function() { window.print(); }</script>
       </body>
@@ -313,12 +332,20 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
 
         <div className="flex flex-wrap gap-3">
           {activeTab === 'inventory' && (
-            <button 
-                onClick={() => setIsFilterModalOpen(true)}
-                className={`flex items-center px-4 py-2 rounded-lg transition shadow-sm ${activeFilters.length > 0 ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'}`}
-            >
-                <Settings size={18} className="mr-2" /> პარამეტრები
-            </button>
+            <>
+                <button 
+                    onClick={() => setShowZeroStock(!showZeroStock)}
+                    className={`flex items-center px-4 py-2 rounded-lg transition shadow-sm ${showZeroStock ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                    <ArchiveX size={18} className="mr-2" /> {showZeroStock ? "ნულოვანი ნაშთები (ჩართულია)" : "ნულოვანი ნაშთები"}
+                </button>
+                <button 
+                    onClick={() => setIsFilterModalOpen(true)}
+                    className={`flex items-center px-4 py-2 rounded-lg transition shadow-sm ${activeFilters.length > 0 ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'}`}
+                >
+                    <Settings size={18} className="mr-2" /> პარამეტრები
+                </button>
+            </>
           )}
           
           <button 
@@ -347,7 +374,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-500">ჯამური რაოდენობა</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalQuantity}</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalQuantity.toFixed(2)}</p>
                 </div>
              </div>
 
@@ -377,17 +404,21 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredProducts.map(p => (
-                            <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        {filteredProducts.length > 0 ? filteredProducts.map(p => (
+                            <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50 text-gray-900">
                                 <td className="p-3 font-mono">{p.nomenclature}</td>
                                 <td className="p-3 font-medium">{p.name}</td>
                                 <td className="p-3">{p.category}</td>
                                 <td className="p-3">{p.warehouse}</td>
                                 <td className="p-3">{p.rack}</td>
-                                <td className="p-3 text-center font-bold">{p.quantity}</td>
+                                <td className="p-3 text-center font-bold">
+                                  {p.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(p.unit)}</span>
+                                </td>
                                 <td className="p-3 text-right">{p.dateAdded}</td>
                             </tr>
-                        ))}
+                        )) : (
+                           <tr><td colSpan={7} className="text-center p-8 text-gray-500">მონაცემები ვერ მოიძებნა</td></tr>
+                        )}
                     </tbody>
                 </table>
              </div>
@@ -437,7 +468,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                              <tr><td colSpan={7} className="text-center p-4">იტვირთება...</td></tr>
                         ) : filteredTransactions.length > 0 ? (
                             filteredTransactions.map(tx => (
-                                <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50">
+                                <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 text-gray-900">
                                     <td className="p-3 whitespace-nowrap">{tx.date}</td>
                                     <td className="p-3">
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === 'inbound' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
@@ -446,7 +477,9 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                                     </td>
                                     <td className="p-3 font-mono">{tx.productNomenclature}</td>
                                     <td className="p-3 font-medium">{tx.productName}</td>
-                                    <td className="p-3 font-bold">{tx.quantity}</td>
+                                    <td className="p-3 font-bold">
+                                      {tx.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(tx.unit)}</span>
+                                    </td>
                                     <td className="p-3 text-gray-600">{tx.receiver || '-'}</td>
                                     <td className="p-3 text-gray-500 max-w-xs truncate" title={tx.notes}>{tx.notes || '-'}</td>
                                 </tr>
@@ -460,11 +493,10 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
           </div>
       )}
 
-      {/* Filter Modal (Same as before, hidden when not active) */}
+      {/* Filter Modal ... (Same structure as before) ... */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl animate-fade-in overflow-hidden max-h-[90vh] overflow-y-auto">
-             {/* Filter Modal Content reused from previous implementation */}
              <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center sticky top-0 z-10">
               <h3 className="text-lg font-bold text-gray-800 flex items-center">
                 <Settings size={20} className="mr-2 text-indigo-600" />
@@ -474,7 +506,6 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
             </div>
             
             <div className="p-6 space-y-6">
-                {/* Simplified filter UI for brevity, assume full implementation is here as in previous file */}
                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">პარამეტრი</label>
@@ -514,12 +545,54 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                          {uniqueRacks.map(c => <option key={c} value={c}>{c}</option>)}
                        </select>
                     )}
-                     {/* ... other inputs ... */}
+                    {selectedFilterType === 'quantity' && (
+                       <div className="flex gap-4">
+                          <div className="w-1/2">
+                            <input 
+                               type="number"
+                               placeholder="მინიმუმი"
+                               value={tempRange.min}
+                               onChange={e => setTempRange({...tempRange, min: e.target.value})}
+                               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg outline-none"
+                            />
+                          </div>
+                          <div className="w-1/2">
+                            <input 
+                               type="number"
+                               placeholder="მაქსიმუმი"
+                               value={tempRange.max}
+                               onChange={e => setTempRange({...tempRange, max: e.target.value})}
+                               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg outline-none"
+                            />
+                          </div>
+                       </div>
+                    )}
+                    {selectedFilterType === 'dateAdded' && (
+                       <div className="flex gap-4">
+                          <div className="w-1/2">
+                            <label className="text-xs text-gray-500 mb-1 block">დან</label>
+                            <input 
+                               type="date"
+                               value={tempDateRange.start}
+                               onChange={e => setTempDateRange({...tempDateRange, start: e.target.value})}
+                               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg outline-none"
+                            />
+                          </div>
+                          <div className="w-1/2">
+                            <label className="text-xs text-gray-500 mb-1 block">მდე</label>
+                            <input 
+                               type="date"
+                               value={tempDateRange.end}
+                               onChange={e => setTempDateRange({...tempDateRange, end: e.target.value})}
+                               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg outline-none"
+                            />
+                          </div>
+                       </div>
+                    )}
                    </div>
                    <button onClick={addFilter} className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">ფილტრის დამატება</button>
                  </div>
 
-                 {/* Backup/Restore Section */}
                  <div className="space-y-4 pt-4 border-t">
                     <h4 className="text-sm font-bold text-gray-900 uppercase">მონაცემთა ბაზა</h4>
                     <div className="grid grid-cols-2 gap-3">

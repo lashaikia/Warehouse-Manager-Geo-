@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Product } from '../types';
-import { Save, X, Camera, Image as ImageIcon, ChevronDown, Calendar, Loader2 } from 'lucide-react';
+import { Product, Unit } from '../types';
+import { Save, X, Camera, Image as ImageIcon, ChevronDown, Calendar, Loader2, Scale } from 'lucide-react';
 import { getOptions } from '../services/storage';
 
 interface ProductFormProps {
@@ -15,6 +15,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
     name: '',
     category: '',
     quantity: 0,
+    unit: 'pcs' as Unit,
     warehouse: '',
     rack: '',
     minQuantity: 5,
@@ -45,6 +46,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
         name: initialData.name,
         category: initialData.category,
         quantity: initialData.quantity,
+        unit: initialData.unit || 'pcs',
         warehouse: initialData.warehouse || '',
         rack: initialData.rack || '',
         minQuantity: initialData.minQuantity,
@@ -55,8 +57,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
     }
   }, [initialData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    // Checkbox handling needs type casting since Select doesn't have checked
+    const checked = (e.target as HTMLInputElement).checked;
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) || 0 : value)
@@ -147,11 +152,30 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">საზომი ერთეული</label>
+            <div className="relative">
+              <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                name="unit"
+                value={formData.unit}
+                onChange={handleChange}
+                className="w-full pl-9 pr-4 p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="pcs">ცალი (pcs)</option>
+                <option value="kg">წონა (kg)</option>
+                <option value="m">სიგრძე (m)</option>
+                <option value="l">მოცულობა (l)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">რაოდენობა *</label>
             <input
               required
               type="number"
               min="0"
+              step="any"
               name="quantity"
               value={formData.quantity}
               onChange={handleChange}
