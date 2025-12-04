@@ -91,7 +91,7 @@ const App = () => {
   };
 
   const handleStockMovement = async (data: any, type: 'inbound' | 'outbound') => {
-     const { productId, quantity, date, receiver, notes, images } = data;
+     const { productId, quantity, date, receiver, notes, images, isDebt } = data;
      const product = products.find(p => p.id === productId);
      
      if(product) {
@@ -112,7 +112,8 @@ const App = () => {
            date,
            receiver,
            notes,
-           images
+           images,
+           isDebt: !!isDebt
         };
         await logTransaction(transaction);
         

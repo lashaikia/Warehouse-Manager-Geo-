@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
-import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale } from 'lucide-react';
+import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale, FileWarning } from 'lucide-react';
 
 interface StockMovementFormProps {
   products: Product[];
@@ -16,6 +16,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const [receiver, setReceiver] = useState('');
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [isDebt, setIsDebt] = useState(false); // New State
   
   const [searchNom, setSearchNom] = useState('');
   const [searchName, setSearchName] = useState('');
@@ -100,7 +101,8 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
       date,
       receiver,
       notes,
-      images
+      images,
+      isDebt // Pass flag
     });
   };
 
@@ -225,6 +227,23 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
              />
           </div>
         </div>
+
+        {/* Debt Checkbox (Only for Outbound) */}
+        {isOutbound && (
+            <div className="bg-red-50 p-4 rounded-lg border border-red-100 flex items-center">
+                <input
+                    type="checkbox"
+                    id="isDebt"
+                    checked={isDebt}
+                    onChange={(e) => setIsDebt(e.target.checked)}
+                    className="w-5 h-5 text-red-600 rounded focus:ring-red-500 border-gray-300 cursor-pointer"
+                />
+                <label htmlFor="isDebt" className="ml-3 text-sm font-bold text-red-800 cursor-pointer flex items-center">
+                    <FileWarning size={18} className="mr-2" />
+                    გაცემა საბუთის გარეშე (ვალი)
+                </label>
+            </div>
+        )}
 
         <div className="space-y-4 pt-4 border-t border-gray-100">
           

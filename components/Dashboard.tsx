@@ -1,26 +1,36 @@
-import React, { useState } from 'react';
-import { Product } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Product, Transaction } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2 } from 'lucide-react';
+import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2, ClipboardList } from 'lucide-react';
 import { SnakeGame } from './SnakeGame';
+import { getTransactions } from '../services/storage';
 
 interface DashboardProps {
   products: Product[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
+  // Fetch transactions for Debt calculation
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  useEffect(() => {
+    getTransactions().then(setTransactions);
+  }, [products]); // Reload when products change
+
   // Filter for active products (quantity > 0)
   const activeProducts = products.filter(p => p.quantity > 0);
 
   const totalProducts = activeProducts.length;
-  // Previously calculated totalQuantity, now removing to avoid mixed unit summation issues
   const lowStockProducts = activeProducts.filter(p => p.isLowStockTracked && (p.quantity <= p.minQuantity));
   const lowStockCount = lowStockProducts.length;
+
+  const debtTransactions = transactions.filter(t => t.isDebt);
+  const debtCount = debtTransactions.length;
 
   const [expandedChart, setExpandedChart] = useState(false);
   const [showActiveList, setShowActiveList] = useState(false);
   const [showLowStockList, setShowLowStockList] = useState(false);
   const [showCategoryList, setShowCategoryList] = useState(false);
+  const [showDebtList, setShowDebtList] = useState(false);
   const [showSnakeGame, setShowSnakeGame] = useState(false);
 
   // Logic Change: Count products per category (assortment size), not sum of quantities
@@ -47,10 +57,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
     }
   };
 
-  // Modal Component for lists
-  const ListModal = ({ title, items, onClose }: { title: string, items: Product[], onClose: () => void }) => (
+  // Generic List Modal
+  const ListModal = ({ title, items, onClose, type }: { title: string, items: any[], onClose: () => void, type: 'product' | 'transaction' }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col text-gray-800" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col text-gray-800" onClick={e => e.stopPropagation()}>
          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <h3 className="text-lg font-bold text-gray-800">{title}</h3>
             <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition"><X size={20} /></button>
@@ -60,23 +70,51 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-100 text-gray-600 sticky top-0">
                         <tr>
-                            <th className="p-3">კოდი</th>
-                            <th className="p-3">დასახელება</th>
-                            <th className="p-3 text-center">რაოდენობა</th>
-                            <th className="p-3">საწყობი</th>
-                            <th className="p-3 text-right">თარიღი</th>
+                            {type === 'product' ? (
+                                <>
+                                    <th className="p-3">კოდი</th>
+                                    <th className="p-3">დასახელება</th>
+                                    <th className="p-3 text-center">რაოდენობა</th>
+                                    <th className="p-3">საწყობი</th>
+                                    <th className="p-3 text-right">თარიღი</th>
+                                </>
+                            ) : (
+                                <>
+                                    <th className="p-3">თარიღი</th>
+                                    <th className="p-3">კოდი</th>
+                                    <th className="p-3">პროდუქტი</th>
+                                    <th className="p-3 text-center">რაოდენობა</th>
+                                    <th className="p-3">მიმღები</th>
+                                    <th className="p-3">შენიშვნა</th>
+                                </>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-gray-800">
-                        {items.sort((a,b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()).map(p => (
-                            <tr key={p.id} className="hover:bg-gray-50">
-                                <td className="p-3 font-mono text-gray-600">{p.nomenclature}</td>
-                                <td className="p-3 font-medium text-gray-900">{p.name}</td>
-                                <td className="p-3 text-center font-bold text-gray-900">
-                                  {p.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(p.unit)}</span>
-                                </td>
-                                <td className="p-3 text-gray-600">{p.warehouse}</td>
-                                <td className="p-3 text-right text-gray-500">{p.dateAdded}</td>
+                        {items.sort((a,b) => new Date(b.date || b.dateAdded).getTime() - new Date(a.date || a.dateAdded).getTime()).map(item => (
+                            <tr key={item.id} className="hover:bg-gray-50">
+                                {type === 'product' ? (
+                                    <>
+                                        <td className="p-3 font-mono text-gray-600">{item.nomenclature}</td>
+                                        <td className="p-3 font-medium text-gray-900">{item.name}</td>
+                                        <td className="p-3 text-center font-bold text-gray-900">
+                                            {item.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(item.unit)}</span>
+                                        </td>
+                                        <td className="p-3 text-gray-600">{item.warehouse}</td>
+                                        <td className="p-3 text-right text-gray-500">{item.dateAdded}</td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td className="p-3 text-gray-500 whitespace-nowrap">{item.date}</td>
+                                        <td className="p-3 font-mono text-gray-600">{item.productNomenclature}</td>
+                                        <td className="p-3 font-medium text-gray-900">{item.productName}</td>
+                                        <td className="p-3 text-center font-bold text-gray-900">
+                                            {item.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(item.unit)}</span>
+                                        </td>
+                                        <td className="p-3 text-gray-900 font-bold">{item.receiver}</td>
+                                        <td className="p-3 text-gray-500">{item.notes}</td>
+                                    </>
+                                )}
                             </tr>
                         ))}
                     </tbody>
@@ -129,7 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div 
             onClick={() => setShowActiveList(true)}
             className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md transition group"
@@ -154,6 +192,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
           <div>
             <p className="text-sm text-gray-500">აქტიური კატეგორიები</p>
             <p className="text-2xl font-bold text-gray-800">{activeCategoriesCount}</p>
+          </div>
+        </div>
+
+        {/* Debt Card */}
+        <div 
+            onClick={() => debtCount > 0 && setShowDebtList(true)}
+            className={`p-6 rounded-xl shadow-sm border flex items-center space-x-4 transition ${debtCount > 0 ? 'bg-purple-50 border-purple-100 cursor-pointer hover:shadow-md' : 'bg-white border-gray-100'}`}
+        >
+          <div className={`p-3 rounded-full ${debtCount > 0 ? 'bg-purple-200 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+            <ClipboardList size={24} />
+          </div>
+          <div>
+            <p className={`text-sm ${debtCount > 0 ? 'text-purple-700 font-medium' : 'text-gray-500'}`}>მოლოდინში (ვალი)</p>
+            <p className={`text-2xl font-bold ${debtCount > 0 ? 'text-purple-800' : 'text-gray-800'}`}>{debtCount}</p>
           </div>
         </div>
 
@@ -238,6 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
             title="აქტიური მარაგები (რაოდენობა > 0)" 
             items={activeProducts} 
             onClose={() => setShowActiveList(false)} 
+            type="product"
         />
       )}
       
@@ -246,12 +299,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
           <CategoryListModal onClose={() => setShowCategoryList(false)} />
       )}
 
+      {/* Debt List Modal */}
+      {showDebtList && (
+          <ListModal 
+            title="უსაბუთოდ გაცემული საქონელი (ვალები)"
+            items={debtTransactions}
+            onClose={() => setShowDebtList(false)}
+            type="transaction"
+          />
+      )}
+
       {/* Low Stock Modal */}
       {showLowStockList && (
         <ListModal 
             title="მცირე მარაგები (ზღვარს ქვემოთ)" 
             items={lowStockProducts} 
             onClose={() => setShowLowStockList(false)} 
+            type="product"
         />
       )}
 

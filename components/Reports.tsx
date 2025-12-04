@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Product, Transaction } from '../types';
-import { Download, Printer, Settings, Filter, X, Check, Database, Upload, Plus, Trash2, FileSpreadsheet, Package, History, ArchiveX } from 'lucide-react';
+import { Download, Printer, Settings, Filter, X, Check, Database, Upload, Plus, Trash2, FileSpreadsheet, Package, History, ArchiveX, AlertOctagon } from 'lucide-react';
 import { getDatabaseJSON, importDatabaseJSON, getTransactions } from '../services/storage';
 
 interface ReportsProps {
@@ -178,7 +178,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
         ]);
         downloadCSV(headers, rows, showZeroStock ? "zero_stock_report" : "inventory_report");
     } else {
-        const headers = ["თარიღი", "ტიპი", "ნომენკლატურა", "პროდუქტი", "რაოდენობა", "ერთეული", "მიმღები/მომწოდებელი", "შენიშვნა"];
+        const headers = ["თარიღი", "ტიპი", "ნომენკლატურა", "პროდუქტი", "რაოდენობა", "ერთეული", "მიმღები/მომწოდებელი", "სტატუსი", "შენიშვნა"];
         const rows = filteredTransactions.map(tx => [
             tx.date, 
             tx.type === 'inbound' ? 'მიღება' : 'გატანა', 
@@ -187,6 +187,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
             tx.quantity,
             getUnitLabel(tx.unit),
             tx.receiver,
+            tx.isDebt ? "ვალი (უსაბუთო)" : "დასრულებული",
             tx.notes
         ]);
         downloadCSV(headers, rows, "history_report");
@@ -238,7 +239,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
           <p>თარიღი: ${dateStr}</p>
           <table>
             <thead>
-              <tr><th>თარიღი</th><th>ტიპი</th><th>კოდი</th><th>პროდუქტი</th><th>რაოდენობა</th><th>ერთეული</th><th>მიმღები</th><th>შენიშვნა</th></tr>
+              <tr><th>თარიღი</th><th>ტიპი</th><th>კოდი</th><th>პროდუქტი</th><th>რაოდენობა</th><th>ერთეული</th><th>მიმღები</th><th>სტატუსი</th><th>შენიშვნა</th></tr>
             </thead>
             <tbody>
               ${filteredTransactions.map(tx => `
@@ -250,6 +251,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                     <td>${tx.quantity}</td>
                     <td>${getUnitLabel(tx.unit)}</td>
                     <td>${tx.receiver || '-'}</td>
+                    <td>${tx.isDebt ? 'ვალი (უსაბუთო)' : 'OK'}</td>
                     <td>${tx.notes || '-'}</td>
                 </tr>`).join('')}
             </tbody>
@@ -471,9 +473,16 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                                 <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 text-gray-900">
                                     <td className="p-3 whitespace-nowrap">{tx.date}</td>
                                     <td className="p-3">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === 'inbound' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                            {tx.type === 'inbound' ? 'მიღება' : 'გატანა'}
-                                        </span>
+                                        <div className="flex items-center space-x-2">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === 'inbound' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                {tx.type === 'inbound' ? 'მიღება' : 'გატანა'}
+                                            </span>
+                                            {tx.isDebt && (
+                                                <span className="flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200" title="უსაბუთოდ გაცემული (ვალი)">
+                                                    <AlertOctagon size={10} className="mr-1" /> ვალი
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="p-3 font-mono">{tx.productNomenclature}</td>
                                     <td className="p-3 font-medium">{tx.productName}</td>

@@ -37,6 +37,7 @@ export interface Transaction {
   receiver?: string;
   notes?: string;
   images?: string[];
+  isDebt?: boolean; // New field for "Pending Document/Debt"
 }
 
 export type ViewState = 'dashboard' | 'inventory' | 'add' | 'edit' | 'reports' | 'inbound' | 'outbound' | 'users' | 'settings';
