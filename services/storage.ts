@@ -164,6 +164,12 @@ export const logTransaction = async (transaction: Omit<Transaction, 'id'>) => {
   await addDoc(collection(db, COLLS.TRANSACTIONS), transaction);
 };
 
+export const updateTransaction = async (id: string, updates: Partial<Transaction>): Promise<Transaction[]> => {
+  const txRef = doc(db, COLLS.TRANSACTIONS, id);
+  await updateDoc(txRef, updates);
+  return await getTransactions();
+};
+
 // --- Settings ---
 // We will store settings in a single document: settings/global
 const SETTINGS_DOC_ID = 'global';

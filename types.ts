@@ -38,6 +38,8 @@ export interface Transaction {
   notes?: string;
   images?: string[];
   isDebt?: boolean; // New field for "Pending Document/Debt"
+  resolutionImage?: string; // Photo of the document when debt is resolved
+  resolutionDate?: string; // Date when debt was resolved
 }
 
 export type ViewState = 'dashboard' | 'inventory' | 'add' | 'edit' | 'reports' | 'inbound' | 'outbound' | 'users' | 'settings';

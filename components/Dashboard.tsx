@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Product, Transaction } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2, ClipboardList } from 'lucide-react';
+import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2, ClipboardList, CheckCircle, Camera, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
 import { SnakeGame } from './SnakeGame';
-import { getTransactions } from '../services/storage';
+import { getTransactions, updateTransaction } from '../services/storage';
 
 interface DashboardProps {
   products: Product[];
@@ -33,6 +33,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
   const [showDebtList, setShowDebtList] = useState(false);
   const [showSnakeGame, setShowSnakeGame] = useState(false);
 
+  // Resolution Modal State
+  const [resolvingTransaction, setResolvingTransaction] = useState<Transaction | null>(null);
+  const [resolutionImage, setResolutionImage] = useState<string>('');
+  const [isResolving, setIsResolving] = useState(false);
+
   // Logic Change: Count products per category (assortment size), not sum of quantities
   const categoryData = activeProducts.reduce((acc, curr) => {
     const existing = acc.find(item => item.name === curr.category);
@@ -57,10 +62,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
     }
   };
 
+  const handleResolveClick = (tx: Transaction) => {
+    setResolvingTransaction(tx);
+    setResolutionImage('');
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setResolutionImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const submitResolution = async () => {
+    if (!resolvingTransaction) return;
+    setIsResolving(true);
+    
+    // Update the transaction in DB
+    const updatedTransactions = await updateTransaction(resolvingTransaction.id, {
+        isDebt: false,
+        resolutionImage: resolutionImage,
+        resolutionDate: new Date().toISOString().split('T')[0]
+    });
+    
+    setTransactions(updatedTransactions);
+    setIsResolving(false);
+    setResolvingTransaction(null);
+    setResolutionImage('');
+    
+    // Close debt list if empty, or keep open
+    // setShowDebtList(false); // Optional: close list automatically
+  };
+
   // Generic List Modal
   const ListModal = ({ title, items, onClose, type }: { title: string, items: any[], onClose: () => void, type: 'product' | 'transaction' }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col text-gray-800" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col text-gray-800" onClick={e => e.stopPropagation()}>
          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <h3 className="text-lg font-bold text-gray-800">{title}</h3>
             <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition"><X size={20} /></button>
@@ -68,7 +109,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
          <div className="p-0 overflow-y-auto flex-1 bg-white">
             {items.length > 0 ? (
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                    <thead className="bg-gray-100 text-gray-600 sticky top-0 z-10">
                         <tr>
                             {type === 'product' ? (
                                 <>
@@ -86,6 +127,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
                                     <th className="p-3 text-center">რაოდენობა</th>
                                     <th className="p-3">მიმღები</th>
                                     <th className="p-3">შენიშვნა</th>
+                                    {/* Action Column for Debt List */}
+                                    {items[0]?.isDebt && <th className="p-3 text-center">მოქმედება</th>}
                                 </>
                             )}
                         </tr>
@@ -112,7 +155,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
                                             {item.quantity} <span className="text-xs font-normal text-gray-500">{getUnitLabel(item.unit)}</span>
                                         </td>
                                         <td className="p-3 text-gray-900 font-bold">{item.receiver}</td>
-                                        <td className="p-3 text-gray-500">{item.notes}</td>
+                                        <td className="p-3 text-gray-500 max-w-xs truncate">{item.notes}</td>
+                                        {/* Resolve Button */}
+                                        {item.isDebt && (
+                                            <td className="p-3 text-center">
+                                                <button 
+                                                    onClick={() => handleResolveClick(item)}
+                                                    className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full hover:bg-green-200 transition border border-green-200"
+                                                >
+                                                    <CheckCircle size={14} className="mr-1" />
+                                                    საბუთის მიღება
+                                                </button>
+                                            </td>
+                                        )}
                                     </>
                                 )}
                             </tr>
@@ -181,7 +236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
           </div>
         </div>
 
-        {/* Changed Card: Active Categories */}
+        {/* Active Categories */}
         <div 
             onClick={() => setShowCategoryList(true)}
             className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md transition group"
@@ -322,6 +377,93 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
       {/* Snake Game Modal */}
       {showSnakeGame && (
         <SnakeGame onClose={() => setShowSnakeGame(false)} />
+      )}
+
+      {/* Resolution Modal */}
+      {resolvingTransaction && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-fade-in overflow-hidden">
+                  <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                        <CheckCircle size={20} className="mr-2 text-green-600" />
+                        ვალის დახურვა / საბუთის მიღება
+                    </h3>
+                    <button onClick={() => setResolvingTransaction(null)} className="text-gray-400 hover:text-gray-600">
+                        <X size={24} />
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                      {/* Added text-gray-800 to ensure readability */}
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm space-y-2 text-gray-800">
+                          <p><strong className="text-gray-900">პროდუქტი:</strong> {resolvingTransaction.productName} ({resolvingTransaction.productNomenclature})</p>
+                          <p><strong className="text-gray-900">გამტანი:</strong> {resolvingTransaction.receiver}</p>
+                          <p><strong className="text-gray-900">რაოდენობა:</strong> {resolvingTransaction.quantity} {getUnitLabel(resolvingTransaction.unit)}</p>
+                          <p><strong className="text-gray-900">თარიღი:</strong> {resolvingTransaction.date}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 block">მიამაგრეთ საბუთის ფოტო (სურვილისამებრ)</label>
+                        <div className="flex gap-4">
+                            <div className="relative flex-1">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <button type="button" className="w-full flex items-center justify-center px-4 py-3 bg-gray-100 text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-200 transition">
+                                    <ImageIcon size={20} className="mr-2" />
+                                    გალერეა
+                                </button>
+                            </div>
+                            <div className="relative flex-1">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handleImageUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <button type="button" className="w-full flex items-center justify-center px-4 py-3 bg-gray-100 text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-200 transition">
+                                    <Camera size={20} className="mr-2" />
+                                    კამერა
+                                </button>
+                            </div>
+                        </div>
+
+                        {resolutionImage && (
+                            <div className="mt-4 relative group w-full h-48 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                <img src={resolutionImage} alt="Resolution Proof" className="w-full h-full object-contain" />
+                                <button 
+                                    onClick={() => setResolutionImage('')}
+                                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full shadow hover:bg-red-600"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        )}
+                      </div>
+
+                      <div className="pt-4 flex justify-end space-x-3 border-t border-gray-100 mt-4">
+                        <button
+                            onClick={() => setResolvingTransaction(null)}
+                            className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                        >
+                            გაუქმება
+                        </button>
+                        <button
+                            onClick={submitResolution}
+                            disabled={isResolving}
+                            className="px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 shadow-md transition flex items-center disabled:opacity-50"
+                        >
+                            {isResolving ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save size={18} className="mr-2" />}
+                            დადასტურება
+                        </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
 
     </div>
