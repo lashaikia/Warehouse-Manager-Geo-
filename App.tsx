@@ -6,11 +6,12 @@ import { ProductList } from './components/ProductList';
 import { ProductForm } from './components/ProductForm';
 import { StockMovementForm } from './components/StockMovementForm';
 import { Reports } from './components/Reports';
+import { CustomReport } from './components/CustomReport';
 import { LoginForm } from './components/LoginForm';
 import { UserManagement } from './components/UserManagement';
 import { SettingsManagement } from './components/SettingsManagement';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { LayoutDashboard, Package, PlusCircle, Menu, X, Box, FileText, ArrowDownCircle, ArrowUpCircle, LogOut, UserCircle, Users, Key, Settings, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Package, PlusCircle, Menu, X, Box, FileText, ArrowDownCircle, ArrowUpCircle, LogOut, UserCircle, Users, Key, Settings, Loader2, ClipboardList } from 'lucide-react';
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -182,6 +183,7 @@ const App = () => {
             <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">ანალიტიკა</p>
           </div>
           <NavItem view="reports" icon={FileText} label="ანგარიშები" />
+          <NavItem view="custom_report" icon={ClipboardList} label="რეპორტი" />
 
           {isAdmin && (
             <>
@@ -251,6 +253,7 @@ const App = () => {
                 
                 <div className="border-t border-gray-100 my-2 pt-2"></div>
                 <NavItem view="reports" icon={FileText} label="ანგარიშები" />
+                <NavItem view="custom_report" icon={ClipboardList} label="რეპორტი" />
 
                 {isAdmin && (
                   <>
@@ -334,6 +337,10 @@ const App = () => {
 
           {currentView === 'reports' && (
             <Reports products={products} />
+          )}
+
+          {currentView === 'custom_report' && (
+            <CustomReport products={products} />
           )}
 
           {currentView === 'users' && isAdmin && (

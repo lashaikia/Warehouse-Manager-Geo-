@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, Role } from '../types';
-import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface ProductListProps {
   products: Product[];
@@ -11,6 +11,8 @@ interface ProductListProps {
 
 export const ProductList: React.FC<ProductListProps> = ({ products, userRole, onEdit, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter: Matches search term AND has quantity > 0
   const filteredProducts = products.filter(product => {
@@ -20,7 +22,16 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
         product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Only show active products
+    // Only show active products (though inventory usually shows all, the previous code filtered for > 0. 
+    // Wait, usually inventory list should show 0 stock items too so we can edit/delete them or see them.
+    // The previous code had: `return matchesSearch && product.quantity > 0;`
+    // If the user wants to delete items, they might be 0 stock. 
+    // However, I will stick to existing logic for the filter unless I see a reason to change.
+    // Actually, if I delete an item, it must be in the list. If it's 0 stock and hidden, I can't delete it?
+    // Let's keep the filter logic as it was to avoid changing behavior not requested, 
+    // BUT usually inventory management should show everything.
+    // The user said "From the warehouse inventory list...".
+    // I will stick to the existing filter logic for the list view as requested.
     return matchesSearch && product.quantity > 0;
   });
 
@@ -34,6 +45,15 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
       case 'l': return 'ლიტრი';
       default: return 'ცალი';
     }
+  };
+
+  const confirmDelete = async () => {
+      if (productToDelete) {
+          setIsDeleting(true);
+          await onDelete(productToDelete.id);
+          setIsDeleting(false);
+          setProductToDelete(null);
+      }
   };
 
   return (
@@ -129,11 +149,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
                             )}
                             {canDelete && (
                               <button 
-                                onClick={() => {
-                                  if(window.confirm('ნამდვილად გსურთ პროდუქტის წაშლა?')) {
-                                    onDelete(product.id);
-                                  }
-                                }}
+                                onClick={() => setProductToDelete(product)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                                 title="წაშლა"
                               >
@@ -160,6 +176,41 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
           აქტიური ჩანაწერი: {filteredProducts.length}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="text-red-600" size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">ნამდვილად გსურთ წაშლა?</h3>
+              <p className="text-gray-500 text-sm mb-6">
+                პროდუქტი <strong>"{productToDelete.name}"</strong> და მისი მონაცემები სამუდამოდ წაიშლება.
+              </p>
+              
+              <div className="flex space-x-3 justify-center">
+                <button 
+                  onClick={() => setProductToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                >
+                  გაუქმება
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium flex items-center shadow-md"
+                >
+                  {isDeleting ? <Loader2 size={18} className="animate-spin mr-2"/> : <Trash2 size={18} className="mr-2" />}
+                  წაშლა
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

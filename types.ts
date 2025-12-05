@@ -42,4 +42,4 @@ export interface Transaction {
   resolutionDate?: string; // Date when debt was resolved
 }
 
-export type ViewState = 'dashboard' | 'inventory' | 'add' | 'edit' | 'reports' | 'inbound' | 'outbound' | 'users' | 'settings';
+export type ViewState = 'dashboard' | 'inventory' | 'add' | 'edit' | 'reports' | 'custom_report' | 'inbound' | 'outbound' | 'users' | 'settings';

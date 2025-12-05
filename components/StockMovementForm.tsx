@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
-import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale, FileWarning } from 'lucide-react';
+import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale, FileWarning, ScanLine, UploadCloud, Loader2 } from 'lucide-react';
+import { ScannerModal } from './ScannerModal';
+import { ScannedItem } from '../services/aiScanner';
 
 interface StockMovementFormProps {
   products: Product[];
@@ -20,6 +22,8 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   
   const [searchNom, setSearchNom] = useState('');
   const [searchName, setSearchName] = useState('');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const isOutbound = type === 'outbound';
   const colorClass = isOutbound ? 'orange' : 'green';
@@ -115,18 +119,88 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
     }
   };
 
+  const handleBulkImport = async (items: ScannedItem[]) => {
+      setIsScannerOpen(false);
+      setBulkProcessing(true);
+
+      try {
+          // Iterate over items.
+          // Strategy: Find existing product by Nomenclature.
+          // If found -> Update. If not found -> Skip (for now) or Alert.
+          // Note: Inbound usually assumes products exist or should be added to inventory. 
+          // Here we assume they exist in Inventory.
+          
+          let successCount = 0;
+          let failCount = 0;
+
+          for (const item of items) {
+              const product = products.find(p => p.nomenclature === item.nomenclature || p.name === item.name);
+              
+              if (product) {
+                  // Submit logic mirrors the form submit
+                  await onSubmit({
+                    productId: product.id,
+                    quantity: item.quantity,
+                    unit: product.unit || 'pcs',
+                    date,
+                    receiver,
+                    notes: `Bulk Import (${notes})`,
+                    images: [],
+                    isDebt
+                  });
+                  successCount++;
+              } else {
+                  failCount++;
+                  console.warn(`Product not found for bulk import: ${item.name}`);
+              }
+          }
+          
+          if (failCount > 0) {
+              alert(`იმპორტი დასრულდა. წარმატებული: ${successCount}, ვერ მოიძებნა: ${failCount} (დაამატეთ ისინი ჯერ მარაგებში)`);
+          }
+
+      } catch (e) {
+          console.error(e);
+          alert("შეცდომა ჯგუფური ოპერაციისას");
+      } finally {
+          setBulkProcessing(false);
+      }
+  };
+
+  if (bulkProcessing) {
+      return (
+          <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in">
+              <Loader2 size={64} className={`animate-spin mb-6 text-${colorClass}-600`} />
+              <h2 className="text-2xl font-bold text-gray-800">მიმდინარეობს ჯგუფური {isOutbound ? 'გატანა' : 'მიღება'}...</h2>
+              <p className="text-gray-500 mt-2">გთხოვთ დაელოდოთ</p>
+          </div>
+      );
+  }
+
   return (
-    <div className="bg-white p-4 md:p-8 rounded-xl shadow-lg border border-gray-100 max-w-2xl mx-auto animate-fade-in">
-      <div className={`flex items-center mb-6 pb-4 border-b border-gray-100`}>
-        <div className={`p-3 rounded-full mr-4 bg-${colorClass}-100 text-${colorClass}-600`}>
-          {isOutbound ? <ArrowUpCircle size={28} /> : <ArrowDownCircle size={28} />}
+    <div className="bg-white p-4 md:p-8 rounded-xl shadow-lg border border-gray-100 max-w-2xl mx-auto animate-fade-in relative">
+      <div className={`flex items-center justify-between mb-6 pb-4 border-b border-gray-100`}>
+        <div className="flex items-center">
+            <div className={`p-3 rounded-full mr-4 bg-${colorClass}-100 text-${colorClass}-600`}>
+            {isOutbound ? <ArrowUpCircle size={28} /> : <ArrowDownCircle size={28} />}
+            </div>
+            <div>
+            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+            <p className="text-sm text-gray-500">
+                {isOutbound ? 'მარაგების ჩამოწერა / გაცემა' : 'არსებული მარაგების შევსება'}
+            </p>
+            </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-          <p className="text-sm text-gray-500">
-            {isOutbound ? 'მარაგების ჩამოწერა / გაცემა' : 'არსებული მარაგების შევსება'}
-          </p>
-        </div>
+        {!isOutbound && (
+            <button 
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md font-bold text-sm"
+            >
+                <UploadCloud size={18} className="mr-2" />
+                ჯგუფური მიღება
+            </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -343,6 +417,13 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
         </div>
 
       </form>
+      
+      {isScannerOpen && (
+          <ScannerModal 
+            onClose={() => setIsScannerOpen(false)}
+            onImport={handleBulkImport}
+          />
+      )}
     </div>
   );
 };
