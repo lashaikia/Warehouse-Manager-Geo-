@@ -23,7 +23,25 @@ const COLLS = {
 };
 
 // --- Helper Functions ---
-const mapDoc = (doc: any) => ({ ...doc.data(), id: doc.id });
+// Sanitize data to remove Firestore References (Circular structures) which crash JSON.stringify
+const mapDoc = (doc: any) => {
+  const data = doc.data();
+  const cleanData: any = {};
+  
+  // Shallow Check for References
+  for (const [key, value] of Object.entries(data)) {
+      // Check if value is a Firestore Reference (circular object)
+      // Usually acts like an object and has 'firestore' property
+      if (value && typeof value === 'object' && (value as any)['firestore']) {
+          // If it's a reference, try to save its ID if possible, otherwise null
+          cleanData[key] = (value as any).id || null;
+      } else {
+          cleanData[key] = value;
+      }
+  }
+  
+  return { ...cleanData, id: doc.id };
+};
 
 // --- Auth & Users ---
 // საწყისი მომხმარებლები, თუ ბაზა ცარიელია
@@ -79,7 +97,12 @@ export const login = async (username: string, password: string): Promise<User | 
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     const user = mapDoc(snapshot.docs[0]) as User;
-    localStorage.setItem('wm_session_user', JSON.stringify(user));
+    // Safely store in localStorage (sanitized by mapDoc)
+    try {
+        localStorage.setItem('wm_session_user', JSON.stringify(user));
+    } catch (e) {
+        console.error("Session save failed", e);
+    }
     return user;
   }
   return null;
@@ -91,7 +114,11 @@ export const logout = () => {
 
 export const getCurrentUser = (): User | null => {
   const stored = localStorage.getItem('wm_session_user');
-  return stored ? JSON.parse(stored) : null;
+  try {
+      return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+      return null;
+  }
 };
 
 export const changePassword = async (userId: string, oldPass: string, newPass: string): Promise<{ success: boolean, message: string }> => {
@@ -270,7 +297,14 @@ export const getDatabaseJSON = async () => {
     transactions,
     settings
   };
-  return JSON.stringify(data, null, 2);
+  
+  // Safe stringify
+  try {
+      return JSON.stringify(data, null, 2);
+  } catch (e) {
+      console.error("Backup serialization error", e);
+      return JSON.stringify({ error: "Failed to serialize data due to circular references" });
+  }
 };
 
 export const importDatabaseJSON = (json: string) => {
