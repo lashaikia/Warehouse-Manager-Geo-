@@ -23,24 +23,37 @@ const COLLS = {
 };
 
 // --- Helper Functions ---
-// Sanitize data to remove Firestore References (Circular structures) which crash JSON.stringify
-const mapDoc = (doc: any) => {
-  const data = doc.data();
-  const cleanData: any = {};
-  
-  // Shallow Check for References
-  for (const [key, value] of Object.entries(data)) {
-      // Check if value is a Firestore Reference (circular object)
-      // Usually acts like an object and has 'firestore' property
-      if (value && typeof value === 'object' && (value as any)['firestore']) {
-          // If it's a reference, try to save its ID if possible, otherwise null
-          cleanData[key] = (value as any).id || null;
-      } else {
-          cleanData[key] = value;
-      }
+// Recursively sanitize data to remove Firestore References (Circular structures)
+const sanitizeData = (data: any): any => {
+  if (data === null || typeof data !== 'object') {
+    return data;
   }
   
-  return { ...cleanData, id: doc.id };
+  // Check for Firestore Reference (has 'firestore' property and 'id')
+  // We check for 'firestore' property to identify SDK objects
+  if ((data['firestore'] && data['id']) || (data.constructor && data.constructor.name === 'DocumentReference')) {
+    return data.id; // Return ID string instead of object
+  }
+  
+  // Check for Date/Timestamp (has 'toDate')
+  if (data['toDate'] && typeof data['toDate'] === 'function') {
+      return data.toDate().toISOString();
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeData(item));
+  }
+
+  const clean: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    clean[key] = sanitizeData(value);
+  }
+  return clean;
+};
+
+const mapDoc = (doc: any) => {
+  const data = doc.data();
+  return { ...sanitizeData(data), id: doc.id };
 };
 
 // --- Auth & Users ---
@@ -74,7 +87,7 @@ export const saveUser = async (userData: Omit<User, 'id'>): Promise<User> => {
 
 export const updateUser = async (id: string, updates: Partial<User>): Promise<User[]> => {
   const userRef = doc(db, COLLS.USERS, id);
-  // Remove id from updates if present to avoid overwriting document key issues (though firestore ignores it usually)
+  // Remove id from updates if present to avoid overwriting document key issues
   const { id: _, ...cleanUpdates } = updates as any;
   await updateDoc(userRef, cleanUpdates);
   return await getUsers();

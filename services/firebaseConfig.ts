@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const STORAGE_KEY = 'wm_firebase_config';
 
@@ -28,6 +28,15 @@ const config = getStoredConfig() || defaultConfig;
 
 const app = initializeApp(config);
 export const db = getFirestore(app);
+
+// Enable offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn('Firestore persistence failed: multiple tabs open');
+    } else if (err.code == 'unimplemented') {
+        console.warn('Firestore persistence not supported');
+    }
+});
 
 // კონფიგურაციის შენახვა და გვერდის გადატვირთვა
 export const saveConfig = (newConfig: any) => {
