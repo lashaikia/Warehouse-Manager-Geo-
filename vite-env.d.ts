@@ -1,18 +1,33 @@
-declare module '@google/genai' {
-    export class GoogleGenAI {
-        constructor(config: { apiKey: string });
-        models: {
-            generateContent(params: any): Promise<any>;
-        };
-    }
-    export enum Type {
-        TYPE_UNSPECIFIED = 'TYPE_UNSPECIFIED',
-        STRING = 'STRING',
-        NUMBER = 'NUMBER',
-        INTEGER = 'INTEGER',
-        BOOLEAN = 'BOOLEAN',
-        ARRAY = 'ARRAY',
-        OBJECT = 'OBJECT',
-        NULL = 'NULL'
-    }
+declare module '*.png' {
+  const src: string;
+  export default src;
 }
+
+declare module '*.jpg' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.jpeg' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.gif' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.svg' {
+  import * as React from 'react';
+  export const ReactComponent: React.FunctionComponent<React.SVGProps<SVGSVGElement> & { title?: string }>;
+  const src: string;
+  export default src;
+}
+
+declare var process: {
+  env: {
+    [key: string]: string | undefined;
+    API_KEY?: string;
+  }
+};
