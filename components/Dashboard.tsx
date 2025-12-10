@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Transaction } from '../types';
+import { Product, Transaction, Theme, User } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2, ClipboardList, CheckCircle, Camera, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
+import { Package, AlertTriangle, Layers, Wifi, X, Maximize2, List, Gamepad2, ClipboardList, CheckCircle, Camera, Image as ImageIcon, Save, Loader2, Calculator as CalcIcon, FileEdit } from 'lucide-react';
 import { SnakeGame } from './SnakeGame';
+import { Calculator } from './Calculator';
+import { Notepad } from './Notepad';
 import { getTransactions, updateTransaction } from '../services/storage';
 
 interface DashboardProps {
   products: Product[];
+  theme?: Theme;
+  user: User;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ products, theme = 'classic', user }) => {
   // Fetch transactions for Debt calculation
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   useEffect(() => {
@@ -31,7 +35,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
   const [showLowStockList, setShowLowStockList] = useState(false);
   const [showCategoryList, setShowCategoryList] = useState(false);
   const [showDebtList, setShowDebtList] = useState(false);
+  
+  // Game & Utils State
   const [showSnakeGame, setShowSnakeGame] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false);
 
   // Resolution Modal State
   const [resolvingTransaction, setResolvingTransaction] = useState<Transaction | null>(null);
@@ -93,9 +101,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
     setIsResolving(false);
     setResolvingTransaction(null);
     setResolutionImage('');
-    
-    // Close debt list if empty, or keep open
-    // setShowDebtList(false); // Optional: close list automatically
+  };
+
+  // Card Style Generator
+  const getCardStyle = (baseColorClass: string = 'bg-white', borderColor: string = 'border-gray-100') => {
+      if (theme === 'glass') {
+          return `bg-white/60 backdrop-blur-lg border-white/50 shadow-lg shadow-indigo-100/50 hover:bg-white/80`;
+      }
+      if (theme === 'midnight') {
+          return `bg-slate-800 border-slate-700 shadow-lg text-gray-100 hover:bg-slate-750`;
+      }
+      return `${baseColorClass} border ${borderColor} shadow-sm hover:shadow-md`;
   };
 
   // Generic List Modal
@@ -211,12 +227,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
       </div>
     </div>
   );
+  
+  const mainTextColor = theme === 'midnight' ? 'text-gray-100' : 'text-gray-800';
+  const subTextColor = theme === 'midnight' ? 'text-gray-400' : 'text-gray-500';
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">მიმოხილვა</h2>
-        <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 text-sm font-medium">
+        <h2 className={`text-2xl font-bold ${mainTextColor}`}>მიმოხილვა</h2>
+        <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-sm font-medium ${theme === 'glass' ? 'bg-green-100/50 text-green-800 border-green-200' : 'bg-green-50 text-green-700 border-green-100'}`}>
              <Wifi size={16} />
              <span>Cloud Connected</span>
         </div>
@@ -225,77 +244,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div 
             onClick={() => setShowActiveList(true)}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md transition group"
+            className={`${getCardStyle()} p-6 rounded-xl flex items-center space-x-4 cursor-pointer transition group`}
         >
           <div className="p-3 bg-blue-100 text-blue-600 rounded-full group-hover:bg-blue-600 group-hover:text-white transition">
             <Package size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500">აქტიური პროდუქტები</p>
-            <p className="text-2xl font-bold text-gray-800">{totalProducts}</p>
+            <p className={`text-sm ${subTextColor}`}>აქტიური პროდუქტები</p>
+            <p className={`text-2xl font-bold ${mainTextColor}`}>{totalProducts}</p>
           </div>
         </div>
 
         {/* Active Categories */}
         <div 
             onClick={() => setShowCategoryList(true)}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md transition group"
+            className={`${getCardStyle()} p-6 rounded-xl flex items-center space-x-4 cursor-pointer transition group`}
         >
           <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full group-hover:bg-emerald-600 group-hover:text-white transition">
             <Layers size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500">აქტიური კატეგორიები</p>
-            <p className="text-2xl font-bold text-gray-800">{activeCategoriesCount}</p>
+            <p className={`text-sm ${subTextColor}`}>აქტიური კატეგორიები</p>
+            <p className={`text-2xl font-bold ${mainTextColor}`}>{activeCategoriesCount}</p>
           </div>
         </div>
 
         {/* Debt Card */}
         <div 
             onClick={() => debtCount > 0 && setShowDebtList(true)}
-            className={`p-6 rounded-xl shadow-sm border flex items-center space-x-4 transition ${debtCount > 0 ? 'bg-purple-50 border-purple-100 cursor-pointer hover:shadow-md' : 'bg-white border-gray-100'}`}
+            className={`p-6 rounded-xl flex items-center space-x-4 transition ${
+                debtCount > 0 
+                ? (theme === 'glass' ? 'bg-purple-100/60 backdrop-blur border-purple-200' : 'bg-purple-50 border-purple-100') + ' border cursor-pointer hover:shadow-md'
+                : getCardStyle()
+            }`}
         >
           <div className={`p-3 rounded-full ${debtCount > 0 ? 'bg-purple-200 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
             <ClipboardList size={24} />
           </div>
           <div>
-            <p className={`text-sm ${debtCount > 0 ? 'text-purple-700 font-medium' : 'text-gray-500'}`}>მოლოდინში (ვალი)</p>
-            <p className={`text-2xl font-bold ${debtCount > 0 ? 'text-purple-800' : 'text-gray-800'}`}>{debtCount}</p>
+            <p className={`text-sm ${debtCount > 0 ? 'text-purple-700 font-medium' : subTextColor}`}>მოლოდინში (ვალი)</p>
+            <p className={`text-2xl font-bold ${debtCount > 0 ? 'text-purple-800' : mainTextColor}`}>{debtCount}</p>
           </div>
         </div>
 
         <div 
             onClick={() => lowStockCount > 0 && setShowLowStockList(true)}
-            className={`p-6 rounded-xl shadow-sm border flex items-center space-x-4 transition ${lowStockCount > 0 ? 'bg-red-50 border-red-100 cursor-pointer hover:shadow-md' : 'bg-white border-gray-100'}`}
+            className={`p-6 rounded-xl flex items-center space-x-4 transition ${
+                lowStockCount > 0 
+                ? (theme === 'glass' ? 'bg-red-100/60 backdrop-blur border-red-200' : 'bg-red-50 border-red-100') + ' border cursor-pointer hover:shadow-md'
+                : getCardStyle()
+            }`}
         >
           <div className={`p-3 rounded-full ${lowStockCount > 0 ? 'bg-red-200 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
             <AlertTriangle size={24} />
           </div>
           <div>
-            <p className={`text-sm ${lowStockCount > 0 ? 'text-red-700 font-medium' : 'text-gray-500'}`}>ყურადღება (ზღვარი)</p>
-            <p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-800' : 'text-gray-800'}`}>{lowStockCount}</p>
+            <p className={`text-sm ${lowStockCount > 0 ? 'text-red-700 font-medium' : subTextColor}`}>ყურადღება (ზღვარი)</p>
+            <p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-800' : mainTextColor}`}>{lowStockCount}</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative group">
+      <div className={`${getCardStyle()} p-6 rounded-xl relative group`}>
         <div className="flex justify-between items-center mb-4">
-             <h3 className="text-lg font-semibold text-gray-700">ასორტიმენტი კატეგორიების მიხედვით (დასახელება)</h3>
+             <h3 className={`text-lg font-semibold ${theme === 'midnight' ? 'text-gray-200' : 'text-gray-700'}`}>ასორტიმენტი კატეგორიების მიხედვით (დასახელება)</h3>
              <button onClick={() => setExpandedChart(true)} className="text-gray-400 hover:text-blue-600 transition"><Maximize2 size={20} /></button>
         </div>
         <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
             <BarChart data={categoryData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} /> 
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'glass' ? '#cbd5e1' : (theme === 'midnight' ? '#334155' : '#e5e7eb')} />
+                <XAxis dataKey="name" stroke={theme === 'midnight' ? '#94a3b8' : '#666'} />
+                <YAxis allowDecimals={false} stroke={theme === 'midnight' ? '#94a3b8' : '#666'} /> 
                 <Tooltip 
                 formatter={(value) => [`${value} დასახელება`, 'რაოდენობა']}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} fillOpacity={theme === 'glass' ? 0.8 : 1} />
                 ))}
                 </Bar>
             </BarChart>
@@ -303,14 +330,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
         </div>
       </div>
 
-      {/* Fun Button */}
-      <div className="flex justify-center mt-8">
+      {/* Utilities & Fun */}
+      <div className="flex justify-center mt-8 space-x-6">
+        
+        {/* Calculator Button */}
+        <button 
+          onClick={() => setShowCalculator(true)}
+          className="group flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+        >
+          <CalcIcon size={20} />
+          <span className="font-bold tracking-wide text-sm">კალკულატორი</span>
+        </button>
+
+        {/* Fun Button */}
         <button 
           onClick={() => setShowSnakeGame(true)}
           className="group flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
         >
           <Gamepad2 size={20} className="group-hover:rotate-12 transition-transform" />
           <span className="font-bold tracking-wide text-sm">გართობა</span>
+        </button>
+
+        {/* Notepad Button */}
+        <button 
+          onClick={() => setShowNotepad(true)}
+          className="group flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+        >
+          <FileEdit size={20} />
+          <span className="font-bold tracking-wide text-sm">ბლოკნოტი</span>
         </button>
       </div>
 
@@ -374,9 +421,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ products }) => {
         />
       )}
 
-      {/* Snake Game Modal */}
+      {/* --- Utility Modals --- */}
+      
       {showSnakeGame && (
         <SnakeGame onClose={() => setShowSnakeGame(false)} />
+      )}
+
+      {showCalculator && (
+        <Calculator onClose={() => setShowCalculator(false)} />
+      )}
+
+      {showNotepad && (
+        <Notepad userId={user.id} onClose={() => setShowNotepad(false)} />
       )}
 
       {/* Resolution Modal */}

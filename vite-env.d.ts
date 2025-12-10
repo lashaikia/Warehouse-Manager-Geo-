@@ -24,10 +24,3 @@ declare module '*.svg' {
   const src: string;
   export default src;
 }
-
-declare var process: {
-  env: {
-    [key: string]: string | undefined;
-    API_KEY?: string;
-  }
-};

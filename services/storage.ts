@@ -19,7 +19,8 @@ const COLLS = {
   USERS: 'users',
   PRODUCTS: 'products',
   TRANSACTIONS: 'transactions',
-  SETTINGS: 'settings'
+  SETTINGS: 'settings',
+  USER_NOTES: 'user_notes' // New collection for notes
 };
 
 // --- Helper Functions ---
@@ -208,6 +209,26 @@ export const updateTransaction = async (id: string, updates: Partial<Transaction
   const txRef = doc(db, COLLS.TRANSACTIONS, id);
   await updateDoc(txRef, updates);
   return await getTransactions();
+};
+
+// --- User Notes ---
+export const getUserNote = async (userId: string): Promise<string> => {
+  if (!userId) return '';
+  const docRef = doc(db, COLLS.USER_NOTES, userId);
+  const snapshot = await getDoc(docRef);
+  if (snapshot.exists()) {
+    return snapshot.data().content || '';
+  }
+  return '';
+};
+
+export const saveUserNote = async (userId: string, content: string): Promise<void> => {
+  if (!userId) return;
+  const docRef = doc(db, COLLS.USER_NOTES, userId);
+  await setDoc(docRef, { 
+    content, 
+    lastUpdated: new Date().toISOString() 
+  }, { merge: true });
 };
 
 // --- Settings ---

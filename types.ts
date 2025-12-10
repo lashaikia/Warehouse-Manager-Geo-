@@ -1,5 +1,6 @@
 export type Role = 'admin' | 'editor' | 'viewer';
 export type Unit = 'pcs' | 'kg' | 'm' | 'l';
+export type Theme = 'classic' | 'executive' | 'glass' | 'midnight' | 'nature' | 'sunset';
 
 export interface User {
   id: string;
