@@ -72,7 +72,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ user, 
                 type="password"
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="შეიყვანეთ ძველი პაროლი"
               />
             </div>
@@ -87,7 +87,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ user, 
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="შეიყვანეთ ახალი პაროლი"
               />
             </div>
@@ -102,7 +102,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ user, 
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="გაიმეორეთ ახალი პაროლი"
               />
             </div>

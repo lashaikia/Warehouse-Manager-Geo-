@@ -125,11 +125,6 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
 
       try {
           // Iterate over items.
-          // Strategy: Find existing product by Nomenclature.
-          // If found -> Update. If not found -> Skip (for now) or Alert.
-          // Note: Inbound usually assumes products exist or should be added to inventory. 
-          // Here we assume they exist in Inventory.
-          
           let successCount = 0;
           let failCount = 0;
 
@@ -137,7 +132,6 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
               const product = products.find(p => p.nomenclature === item.nomenclature || p.name === item.name);
               
               if (product) {
-                  // Submit logic mirrors the form submit
                   await onSubmit({
                     productId: product.id,
                     quantity: item.quantity,
@@ -213,7 +207,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
               <div className="relative">
                 <input
                   list="nom-options"
-                  className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                  className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                   placeholder="ძებნა კოდით..."
                   value={searchNom}
                   onChange={handleNomChange}
@@ -231,7 +225,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
               <div className="relative">
                 <input
                   list="name-options"
-                  className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="ძებნა სახელით..."
                   value={searchName}
                   onChange={handleNameChange}
@@ -284,7 +278,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
               step="any"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold"
+              className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold"
             />
           </div>
 
@@ -297,7 +291,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                type="date"
                value={date}
                onChange={(e) => setDate(e.target.value)}
-               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+               className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
              />
           </div>
         </div>
@@ -330,7 +324,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                type="text"
                value={receiver}
                onChange={(e) => setReceiver(e.target.value)}
-               className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+               className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                placeholder={isOutbound ? "მაგ: სახელი, გვარი ან ობიექტი..." : "მაგ: კომპანიის სახელი ან პირი..."}
              />
           </div>
@@ -341,7 +335,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 placeholder={isOutbound ? "დამატებითი დეტალები..." : "დამატებითი დეტალები..."}
               />
           </div>

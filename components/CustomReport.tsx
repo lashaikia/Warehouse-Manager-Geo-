@@ -291,7 +291,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                             value={filters.inboundDateFrom} 
                             onChange={handleChange} 
                             lang="ka"
-                            className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-500" 
+                            className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-500" 
                         />
                         {filters.useRange && (
                            <>
@@ -302,7 +302,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                                 value={filters.inboundDateTo} 
                                 onChange={handleChange} 
                                 lang="ka"
-                                className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-500" 
+                                className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-500" 
                             />
                            </>
                         )}
@@ -318,7 +318,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                             value={filters.outboundDateFrom} 
                             onChange={handleChange} 
                             lang="ka"
-                            className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-orange-500" 
+                            className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-orange-500" 
                         />
                         {filters.useRange && (
                            <>
@@ -329,7 +329,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                                 value={filters.outboundDateTo} 
                                 onChange={handleChange} 
                                 lang="ka"
-                                className="w-full p-2.5 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-orange-500" 
+                                className="w-full p-2.5 bg-white border border-gray-300 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-orange-500" 
                              />
                            </>
                         )}
@@ -352,7 +352,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                         value={filters.supplier} 
                         onChange={handleChange} 
                         placeholder="სახელი..." 
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" 
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" 
                     />
                 </div>
                 <div>
@@ -363,12 +363,12 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                         value={filters.receiver} 
                         onChange={handleChange} 
                         placeholder="სახელი..." 
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" 
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" 
                     />
                 </div>
                 <div>
                      <label className="text-xs font-medium text-gray-500 block mb-1">საზომი ერთეული</label>
-                     <select name="unit" value={filters.unit} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
+                     <select name="unit" value={filters.unit} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
                          <option value="">ყველა</option>
                          <option value="pcs">ცალი (pcs)</option>
                          <option value="kg">წონა (kg)</option>
@@ -388,21 +388,21 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                  <div>
                      <label className="text-xs font-medium text-gray-500 block mb-1">კატეგორია</label>
-                     <select name="category" value={filters.category} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
+                     <select name="category" value={filters.category} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
                          <option value="">ყველა</option>
                          {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                      </select>
                 </div>
                 <div>
                      <label className="text-xs font-medium text-gray-500 block mb-1">საწყობი</label>
-                     <select name="warehouse" value={filters.warehouse} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
+                     <select name="warehouse" value={filters.warehouse} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
                          <option value="">ყველა</option>
                          {uniqueWarehouses.map(c => <option key={c} value={c}>{c}</option>)}
                      </select>
                 </div>
                 <div>
                      <label className="text-xs font-medium text-gray-500 block mb-1">სტელაჟი</label>
-                     <select name="rack" value={filters.rack} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
+                     <select name="rack" value={filters.rack} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500">
                          <option value="">ყველა</option>
                          {uniqueRacks.map(c => <option key={c} value={c}>{c}</option>)}
                      </select>
@@ -410,11 +410,11 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                 <div className="flex gap-2">
                      <div className="w-1/2">
                         <label className="text-xs font-medium text-gray-500 block mb-1">რაოდ. Min</label>
-                        <input type="number" name="qtyMin" value={filters.qtyMin} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none" placeholder="0" />
+                        <input type="number" name="qtyMin" value={filters.qtyMin} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none" placeholder="0" />
                      </div>
                      <div className="w-1/2">
                         <label className="text-xs font-medium text-gray-500 block mb-1">Max</label>
-                        <input type="number" name="qtyMax" value={filters.qtyMax} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-sm outline-none" placeholder="∞" />
+                        <input type="number" name="qtyMax" value={filters.qtyMax} onChange={handleChange} className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg text-sm outline-none" placeholder="∞" />
                      </div>
                 </div>
             </div>

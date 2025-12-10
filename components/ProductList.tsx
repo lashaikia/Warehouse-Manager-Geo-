@@ -23,13 +23,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
         (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     // Only show active products (though inventory usually shows all, the previous code filtered for > 0. 
-    // Wait, usually inventory list should show 0 stock items too so we can edit/delete them or see them.
-    // The previous code had: `return matchesSearch && product.quantity > 0;`
-    // If the user wants to delete items, they might be 0 stock. 
-    // However, I will stick to existing logic for the filter unless I see a reason to change.
-    // Actually, if I delete an item, it must be in the list. If it's 0 stock and hidden, I can't delete it?
-    // Let's keep the filter logic as it was to avoid changing behavior not requested, 
-    // BUT usually inventory management should show everything.
+    // Wait, usually inventory management should show everything.
     // The user said "From the warehouse inventory list...".
     // I will stick to the existing filter logic for the list view as requested.
     return matchesSearch && product.quantity > 0;
@@ -65,7 +59,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
           <input 
             type="text" 
             placeholder="ძებნა (სახელი, კოდი, საწყობი)..." 
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

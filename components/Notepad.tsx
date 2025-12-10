@@ -50,7 +50,7 @@ export const Notepad: React.FC<NotepadProps> = ({ userId, onClose }) => {
              <textarea 
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full h-full p-4 bg-transparent border-none outline-none resize-none font-mono text-gray-800 text-sm leading-relaxed"
+                className="w-full h-full p-4 bg-transparent border-none outline-none resize-none font-mono text-black text-sm leading-relaxed"
                 placeholder="ჩაწერეთ თქვენი შენიშვნები აქ..."
              />
            )}

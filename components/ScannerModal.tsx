@@ -296,7 +296,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                         type="text" 
                                                         value={item.nomenclature} 
                                                         onChange={(e) => handleItemChange(idx, 'nomenclature', e.target.value)}
-                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 font-mono text-gray-900 font-bold shadow-sm"
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 font-mono text-black font-bold shadow-sm"
                                                         placeholder="კოდი..."
                                                     />
                                                 </td>
@@ -305,7 +305,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                         type="text" 
                                                         value={item.name} 
                                                         onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-gray-900 font-medium shadow-sm"
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black font-medium shadow-sm"
                                                         placeholder="დასახელება..."
                                                     />
                                                 </td>
@@ -314,14 +314,14 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                         type="number" 
                                                         value={item.quantity} 
                                                         onChange={(e) => handleItemChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-gray-900 font-bold text-center shadow-sm"
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black font-bold text-center shadow-sm"
                                                     />
                                                 </td>
                                                 <td className="p-3">
                                                      <select 
                                                         value={item.unit}
                                                         onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
-                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-gray-900 text-xs shadow-sm"
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black text-xs shadow-sm"
                                                      >
                                                          <option value="pcs">ცალი</option>
                                                          <option value="kg">კგ</option>

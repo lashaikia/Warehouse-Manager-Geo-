@@ -107,11 +107,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
       
       try {
           // Loop through items and save them using the onSubmit prop logic
-          // Note: Since onSubmit usually redirects or changes view, we might want to adapt this.
-          // However, for simplicity here, we assume onSubmit is 'saveProduct' from App.tsx.
-          // Since onSubmit in App.tsx sets view to 'inventory' at the end, handling loop here might flicker.
-          // BUT, App.tsx handles state updates. We will fire them sequentially.
-          
           let count = 0;
           for (const item of items) {
               const productData: Omit<Product, 'id' | 'lastUpdated'> = {
@@ -127,16 +122,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                   images: [],
                   isLowStockTracked: formData.isLowStockTracked
               };
-              // We call onSubmit for each.
-              // WARNING: In App.tsx, handleAddProduct calls loadData() and setCurrentView('inventory').
-              // This might cause the component to unmount after the first save.
-              // To support true bulk import, we really should have a dedicated bulk service method in App.tsx,
-              // but given the constraints, we will proceed. Ideally App.tsx should handle the loop.
-              // For now, we will just call it.
               await onSubmit(productData);
               count++;
           }
-          // The view will likely change to inventory automatically after the first or last save.
       } catch (e) {
           console.error("Bulk save error", e);
           alert("შეცდომა ჯგუფური შენახვისას");
@@ -183,7 +171,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
               name="nomenclature"
               value={formData.nomenclature}
               onChange={handleChange}
-              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition font-mono"
+              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition font-mono"
               placeholder="მაგ: 1000523"
             />
           </div>
@@ -196,7 +184,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                     name="category"
                     value={formData.category}
                     onChange={handleChange}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                     placeholder="მაგ: ელექტრონიკა"
                 />
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -215,7 +203,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
               placeholder="პროდუქტის სრული სახელი"
             />
           </div>
@@ -228,7 +216,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
-                className="w-full pl-9 pr-4 p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full pl-9 pr-4 p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               >
                 <option value="pcs">ცალი (pcs)</option>
                 <option value="kg">წონა (kg)</option>
@@ -248,7 +236,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
               name="quantity"
               value={formData.quantity}
               onChange={handleChange}
-              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
             />
           </div>
 
@@ -262,7 +250,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                name="dateAdded"
                value={formData.dateAdded}
                onChange={handleChange}
-               className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+               className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
              />
           </div>
 
@@ -275,7 +263,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                     name="warehouse"
                     value={formData.warehouse}
                     onChange={handleChange}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                     placeholder="აირჩიეთ ან ჩაწერეთ..."
                   />
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -295,7 +283,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                     name="rack"
                     value={formData.rack}
                     onChange={handleChange}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                     placeholder="მაგ: 25 (ავტომატური ძებნა)"
                   />
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -382,7 +370,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                    name="minQuantity"
                    value={formData.minQuantity}
                    onChange={handleChange}
-                   className="w-full md:w-1/2 p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                   className="w-full md:w-1/2 p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                  />
                  <p className="text-xs text-gray-500">თუ რაოდენობა ჩამოცდება {formData.minQuantity}-ს, სისტემა გამოიტანს გაფრთხილებას.</p>
                </div>

@@ -182,7 +182,7 @@ export const UserManagement: React.FC = () => {
                    type="text"
                    value={formData.name}
                    onChange={e => setFormData({...formData, name: e.target.value})}
-                   className="w-full p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                   className="w-full p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                    placeholder="მაგ: გიორგი ბერიძე"
                  />
                </div>
@@ -195,7 +195,7 @@ export const UserManagement: React.FC = () => {
                    value={formData.username}
                    onChange={e => setFormData({...formData, username: e.target.value})}
                    disabled={!!editingUser}
-                   className={`w-full p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${editingUser ? 'bg-gray-100 text-gray-500' : ''}`}
+                   className={`w-full p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${editingUser ? 'bg-gray-100 text-gray-500' : ''}`}
                    placeholder="mag: giorgi123"
                  />
                </div>
@@ -209,7 +209,7 @@ export const UserManagement: React.FC = () => {
                    type="text"
                    value={formData.password}
                    onChange={e => setFormData({...formData, password: e.target.value})}
-                   className="w-full p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                   className="w-full p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
                    placeholder="პაროლი"
                  />
                </div>
@@ -222,7 +222,7 @@ export const UserManagement: React.FC = () => {
                  <select
                    value={formData.role}
                    onChange={(e) => setFormData({...formData, role: e.target.value as Role})}
-                   className="w-full p-2.5 bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                   className="w-full p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                  >
                    <option value="viewer">Viewer (მხოლოდ ნახვა)</option>
                    <option value="editor">Editor (ოპერატორი)</option>

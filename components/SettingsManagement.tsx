@@ -236,7 +236,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             placeholder={editingItem ? "შეიყვანეთ ახალი სახელი..." : "დაამატე ახალი..."}
-                            className="flex-1 p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="flex-1 p-2.5 bg-gray-50 border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                         <button 
                             type="submit"

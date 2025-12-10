@@ -13,29 +13,29 @@ import { SettingsManagement } from './components/SettingsManagement';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { LayoutDashboard, Package, PlusCircle, Menu, X, FileText, ArrowDownCircle, ArrowUpCircle, LogOut, UserCircle, Users, Key, Settings, Loader2, ClipboardList } from 'lucide-react';
 
-const Logo = () => (
+const Logo = ({ idPrefix = 'main' }: { idPrefix?: string }) => (
   <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="blueBall" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(35 35) rotate(90) scale(40)">
+      <radialGradient id={`${idPrefix}_blueBall`} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(35 35) rotate(90) scale(40)">
         <stop stopColor="#60A5FA" />
         <stop offset="1" stopColor="#1E40AF" />
       </radialGradient>
-      <radialGradient id="greenBall" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(35 35) rotate(90) scale(40)">
+      <radialGradient id={`${idPrefix}_greenBall`} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(35 35) rotate(90) scale(40)">
         <stop stopColor="#4ADE80" />
         <stop offset="1" stopColor="#15803D" />
       </radialGradient>
     </defs>
     {/* Top Row (1) */}
-    <circle cx="50" cy="25" r="15" fill="url(#blueBall)" />
+    <circle cx="50" cy="25" r="15" fill={`url(#${idPrefix}_blueBall)`} />
     
     {/* Middle Row (2) */}
-    <circle cx="34" cy="52" r="15" fill="url(#blueBall)" />
-    <circle cx="66" cy="52" r="15" fill="url(#greenBall)" />
+    <circle cx="34" cy="52" r="15" fill={`url(#${idPrefix}_blueBall)`} />
+    <circle cx="66" cy="52" r="15" fill={`url(#${idPrefix}_greenBall)`} />
     
     {/* Bottom Row (3) */}
-    <circle cx="18" cy="79" r="15" fill="url(#blueBall)" />
-    <circle cx="50" cy="79" r="15" fill="url(#greenBall)" />
-    <circle cx="82" cy="79" r="15" fill="url(#greenBall)" />
+    <circle cx="18" cy="79" r="15" fill={`url(#${idPrefix}_blueBall)`} />
+    <circle cx="50" cy="79" r="15" fill={`url(#${idPrefix}_greenBall)`} />
+    <circle cx="82" cy="79" r="15" fill={`url(#${idPrefix}_greenBall)`} />
   </svg>
 );
 
@@ -252,7 +252,7 @@ const App = () => {
       <aside className={`hidden md:flex flex-col w-64 h-screen sticky top-0 transition-colors duration-300 ${getSidebarStyles()}`}>
         <div className={`p-6 flex items-center space-x-3 border-b border-opacity-10 ${theme === 'classic' ? 'border-gray-200' : 'border-white'}`}>
           <div className="w-10 h-10 flex-shrink-0">
-             <Logo />
+             <Logo idPrefix="desktop" />
           </div>
           <h1 className={`text-lg font-black tracking-tight uppercase leading-tight ${theme === 'classic' ? 'text-gray-800' : 'text-white'}`}>
              ცენტრალური<br/>საწყობი
@@ -320,8 +320,8 @@ const App = () => {
 
       <div className={`md:hidden fixed top-0 w-full z-50 px-4 py-3 flex justify-between items-center shadow-sm ${theme === 'glass' ? 'bg-white/80 backdrop-blur border-b border-gray-200' : 'bg-white border-b border-gray-200'}`}>
         <div className="flex items-center space-x-3">
-           <div className="w-8 h-8">
-             <Logo />
+           <div className="w-8 h-8 flex-shrink-0">
+             <Logo idPrefix="mobile" />
            </div>
            <h1 className="text-sm font-black text-gray-800 uppercase leading-none">ცენტრალური<br/>საწყობი</h1>
         </div>
