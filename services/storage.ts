@@ -1,3 +1,4 @@
+
 import { Product, Transaction, User } from '../types';
 import { db } from './firebaseConfig';
 import { 
@@ -11,7 +12,9 @@ import {
   where,
   setDoc,
   getDoc,
-  orderBy
+  orderBy,
+  writeBatch,
+  limit
 } from 'firebase/firestore';
 
 // Collection Names
@@ -20,23 +23,22 @@ const COLLS = {
   PRODUCTS: 'products',
   TRANSACTIONS: 'transactions',
   SETTINGS: 'settings',
-  USER_NOTES: 'user_notes' // New collection for notes
+  USER_NOTES: 'user_notes'
 };
 
 // --- Helper Functions ---
-// Recursively sanitize data to remove Firestore References (Circular structures)
 const sanitizeData = (data: any): any => {
   if (data === null || typeof data !== 'object') {
     return data;
   }
   
-  // Check for Firestore Reference (has 'firestore' property and 'id')
-  // We check for 'firestore' property to identify SDK objects
-  if ((data['firestore'] && data['id']) || (data.constructor && data.constructor.name === 'DocumentReference')) {
-    return data.id; // Return ID string instead of object
+  // Check for Firestore DocumentReference / CollectionReference / Query
+  // They typically have a 'firestore' property and a 'path' or 'type'.
+  if (data.firestore && (data.path || data.type)) {
+    // If it has an ID, return that, otherwise path, or just string repr
+    return data.id || data.path || String(data);
   }
   
-  // Check for Date/Timestamp (has 'toDate')
   if (data['toDate'] && typeof data['toDate'] === 'function') {
       return data.toDate().toISOString();
   }
@@ -47,6 +49,8 @@ const sanitizeData = (data: any): any => {
 
   const clean: any = {};
   for (const [key, value] of Object.entries(data)) {
+    // Skip internal firestore properties just in case, though sanitizing value should catch it
+    if (key === 'firestore' || typeof value === 'function') continue;
     clean[key] = sanitizeData(value);
   }
   return clean;
@@ -58,7 +62,6 @@ const mapDoc = (doc: any) => {
 };
 
 // --- Auth & Users ---
-// საწყისი მომხმარებლები, თუ ბაზა ცარიელია
 const seedUsers: Omit<User, 'id'>[] = [
   { username: 'admin', name: 'მთავარი ადმინისტრატორი', role: 'admin', password: 'admin' },
   { username: 'editor', name: 'საწყობის ოპერატორი', role: 'editor', password: 'editor' },
@@ -69,7 +72,6 @@ export const getUsers = async (): Promise<User[]> => {
   const q = query(collection(db, COLLS.USERS));
   const snapshot = await getDocs(q);
   
-  // თუ ბაზა ცარიელია, დავამატოთ საწყისი მომხმარებლები
   if (snapshot.empty) {
     for (const u of seedUsers) {
       await addDoc(collection(db, COLLS.USERS), u);
@@ -88,7 +90,6 @@ export const saveUser = async (userData: Omit<User, 'id'>): Promise<User> => {
 
 export const updateUser = async (id: string, updates: Partial<User>): Promise<User[]> => {
   const userRef = doc(db, COLLS.USERS, id);
-  // Remove id from updates if present to avoid overwriting document key issues
   const { id: _, ...cleanUpdates } = updates as any;
   await updateDoc(userRef, cleanUpdates);
   return await getUsers();
@@ -100,8 +101,6 @@ export const deleteUser = async (id: string): Promise<User[]> => {
 };
 
 export const login = async (username: string, password: string): Promise<User | null> => {
-  // უსაფრთხოების მიზნით, რეალურ აპლიკაციაში უმჯობესია Firebase Auth-ის გამოყენება.
-  // აქ ვიყენებთ მარტივ შედარებას კოლექციიდან.
   const q = query(
     collection(db, COLLS.USERS), 
     where("username", "==", username), 
@@ -111,7 +110,6 @@ export const login = async (username: string, password: string): Promise<User | 
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     const user = mapDoc(snapshot.docs[0]) as User;
-    // Safely store in localStorage (sanitized by mapDoc)
     try {
         localStorage.setItem('wm_session_user', JSON.stringify(user));
     } catch (e) {
@@ -150,7 +148,6 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
 
   await updateDoc(userRef, { password: newPass });
   
-  // განვაახლოთ ლოკალური სესია თუ მიმდინარე მომხმარებელმა შეიცვალა პაროლი
   const currentUser = getCurrentUser();
   if (currentUser && currentUser.id === userId) {
     localStorage.setItem('wm_session_user', JSON.stringify({ ...currentUser, password: newPass }));
@@ -161,10 +158,8 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
 
 // --- Products ---
 export const getProducts = async (): Promise<Product[]> => {
-  // Sort by lastUpdated desc
-  const q = query(collection(db, COLLS.PRODUCTS)); // Firestore index might be needed for orderBy
+  const q = query(collection(db, COLLS.PRODUCTS)); 
   const snapshot = await getDocs(q);
-  // Client side sorting for simplicity if index is missing
   const products = snapshot.docs.map(mapDoc) as Product[];
   return products.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
 };
@@ -197,7 +192,6 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   const q = query(collection(db, COLLS.TRANSACTIONS));
   const snapshot = await getDocs(q);
   const txs = snapshot.docs.map(mapDoc) as Transaction[];
-  // Sort manually to avoid complex index requirements initially
   return txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
@@ -208,6 +202,11 @@ export const logTransaction = async (transaction: Omit<Transaction, 'id'>) => {
 export const updateTransaction = async (id: string, updates: Partial<Transaction>): Promise<Transaction[]> => {
   const txRef = doc(db, COLLS.TRANSACTIONS, id);
   await updateDoc(txRef, updates);
+  return await getTransactions();
+};
+
+export const deleteTransaction = async (id: string): Promise<Transaction[]> => {
+  await deleteDoc(doc(db, COLLS.TRANSACTIONS, id));
   return await getTransactions();
 };
 
@@ -232,15 +231,15 @@ export const saveUserNote = async (userId: string, content: string): Promise<voi
 };
 
 // --- Settings ---
-// We will store settings in a single document: settings/global
 const SETTINGS_DOC_ID = 'global';
 const DEFAULT_OPTIONS = {
   warehouses: ["ცენტრალური საწყობი", "საწყობი N4-კარი1", "საწყობი N4-კარი2", "საწყობი N6", "გარე პერიმეტრი"],
   racks: Array.from({ length: 50 }, (_, i) => `სტელაჟი N${i + 1}`),
-  categories: ["ელექტრონიკა", "ეკიპირება", "მასალები", "სხვა"]
+  categories: ["ელექტრონიკა", "ეკიპირება", "მასალები", "სხვა"],
+  units: ["ცალი", "კგ", "მეტრი", "ლიტრი", "კომპლექტი", "წყვილი", "შეკვრა"] 
 };
 
-export const getOptions = async (type: 'warehouses' | 'racks' | 'categories'): Promise<string[]> => {
+export const getOptions = async (type: 'warehouses' | 'racks' | 'categories' | 'units'): Promise<string[]> => {
   const docRef = doc(db, COLLS.SETTINGS, SETTINGS_DOC_ID);
   const snapshot = await getDoc(docRef);
   
@@ -248,28 +247,26 @@ export const getOptions = async (type: 'warehouses' | 'racks' | 'categories'): P
     const data = snapshot.data();
     return data[type] || DEFAULT_OPTIONS[type];
   } else {
-    // If doesn't exist, create it
     await setDoc(docRef, DEFAULT_OPTIONS);
     return DEFAULT_OPTIONS[type];
   }
 };
 
-export const saveOption = async (type: 'warehouses' | 'racks' | 'categories', value: string): Promise<string[]> => {
+export const saveOption = async (type: 'warehouses' | 'racks' | 'categories' | 'units', value: string): Promise<string[]> => {
   const docRef = doc(db, COLLS.SETTINGS, SETTINGS_DOC_ID);
   const snapshot = await getDoc(docRef);
   let data = snapshot.exists() ? snapshot.data() : DEFAULT_OPTIONS;
   
   let list = data[type] || [];
-  if (!list.includes(value)) {
+  // Ensure we don't duplicate
+  if (!list.some((item: string) => item.toLowerCase() === value.toLowerCase())) {
     list.push(value);
-    list.sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    
     await setDoc(docRef, { ...data, [type]: list });
   }
   return list;
 };
 
-export const deleteOption = async (type: 'warehouses' | 'racks' | 'categories', value: string): Promise<string[]> => {
+export const deleteOption = async (type: 'warehouses' | 'racks' | 'categories' | 'units', value: string): Promise<string[]> => {
   const docRef = doc(db, COLLS.SETTINGS, SETTINGS_DOC_ID);
   const snapshot = await getDoc(docRef);
   let data = snapshot.exists() ? snapshot.data() : DEFAULT_OPTIONS;
@@ -281,8 +278,7 @@ export const deleteOption = async (type: 'warehouses' | 'racks' | 'categories', 
   return list;
 };
 
-export const updateOptionAndCascade = async (type: 'warehouses' | 'racks' | 'categories', oldValue: string, newValue: string): Promise<string[]> => {
-  // 1. Update the option list
+export const updateOptionAndCascade = async (type: 'warehouses' | 'racks' | 'categories' | 'units', oldValue: string, newValue: string): Promise<string[]> => {
   const docRef = doc(db, COLLS.SETTINGS, SETTINGS_DOC_ID);
   const snapshot = await getDoc(docRef);
   let data = snapshot.exists() ? snapshot.data() : DEFAULT_OPTIONS;
@@ -292,16 +288,13 @@ export const updateOptionAndCascade = async (type: 'warehouses' | 'racks' | 'cat
   
   if (index !== -1) {
     list[index] = newValue;
-    list.sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     await setDoc(docRef, { ...data, [type]: list });
 
-    // 2. Cascade update to all products
-    // Note: In Firestore, bulk updates usually require Batch writes. 
-    // For simplicity here, we query and update individually. Large datasets would need a cloud function.
     let fieldToUpdate = '';
     if (type === 'warehouses') fieldToUpdate = 'warehouse';
     if (type === 'racks') fieldToUpdate = 'rack';
     if (type === 'categories') fieldToUpdate = 'category';
+    if (type === 'units') fieldToUpdate = 'unit';
 
     if (fieldToUpdate) {
       const q = query(collection(db, COLLS.PRODUCTS), where(fieldToUpdate, '==', oldValue));
@@ -316,14 +309,46 @@ export const updateOptionAndCascade = async (type: 'warehouses' | 'racks' | 'cat
   return list;
 };
 
-// --- Backup (Export only, since Firestore backup is complex to import client-side simply) ---
+// --- DATA CLEARING UTILS ---
+
+// Simplified delete to ensure it works for small datasets
+const deleteCollection = async (collectionName: string) => {
+    try {
+        const colRef = collection(db, collectionName);
+        const snapshot = await getDocs(colRef);
+        
+        // Simple Promise.all delete - best for small number of records (like 5)
+        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        
+        return true;
+    } catch (error) {
+        console.error(`Error deleting collection ${collectionName}:`, error);
+        return false;
+    }
+};
+
+export const clearProductsCollection = async () => {
+    return await deleteCollection(COLLS.PRODUCTS);
+};
+
+export const clearTransactionsCollection = async () => {
+    return await deleteCollection(COLLS.TRANSACTIONS);
+};
+
+export const clearOperationalData = async () => {
+  const p = await clearProductsCollection();
+  const t = await clearTransactionsCollection();
+  return p && t;
+};
+
 export const getDatabaseJSON = async () => {
   const users = await getUsers();
   const products = await getProducts();
   const transactions = await getTransactions();
   const docRef = doc(db, COLLS.SETTINGS, SETTINGS_DOC_ID);
   const settingsSnap = await getDoc(docRef);
-  const settings = settingsSnap.exists() ? settingsSnap.data() : DEFAULT_OPTIONS;
+  const settings = settingsSnap.exists() ? sanitizeData(settingsSnap.data()) : DEFAULT_OPTIONS;
 
   const data = {
     users,
@@ -332,12 +357,11 @@ export const getDatabaseJSON = async () => {
     settings
   };
   
-  // Safe stringify
   try {
       return JSON.stringify(data, null, 2);
   } catch (e) {
       console.error("Backup serialization error", e);
-      return JSON.stringify({ error: "Failed to serialize data due to circular references" });
+      return JSON.stringify({ error: "Failed to serialize data" });
   }
 };
 

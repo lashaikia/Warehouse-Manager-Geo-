@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Transaction } from '../types';
-import { Printer, X, Database, Upload, FileSpreadsheet, Package, History, ArchiveX, AlertOctagon, Filter, CheckCircle2, Box, MapPin, Tag, Calendar, User, AlertTriangle, ArrowDownCircle, ArrowUpCircle, Copy } from 'lucide-react';
-import { getDatabaseJSON, importDatabaseJSON, getTransactions } from '../services/storage';
+import { Printer, X, Database, Upload, FileSpreadsheet, Package, History, ArchiveX, AlertOctagon, Filter, CheckCircle2, Box, MapPin, Tag, Calendar, User, AlertTriangle, ArrowDownCircle, ArrowUpCircle, Copy, Trash2, Loader2 } from 'lucide-react';
+import { getDatabaseJSON, importDatabaseJSON, getTransactions, clearTransactionsCollection, deleteTransaction } from '../services/storage';
 
 interface ReportsProps {
   products: Product[];
@@ -23,6 +24,7 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // View Modes
   const [showZeroStock, setShowZeroStock] = useState(false);
@@ -186,6 +188,40 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
         reader.readAsText(file);
       }
   };
+  
+  const handleClearHistory = async () => {
+      if(window.confirm("ყურადღება! ნამდვილად გსურთ სრული ისტორიის წაშლა? \n\nეს ქმედება წაშლის ყველა ტრანზაქციას და მისი აღდგენა შეუძლებელია!")) {
+          setDeleting(true);
+          try {
+              const success = await clearTransactionsCollection();
+              if (success) {
+                  setTransactions([]);
+                  alert("ისტორია წარმატებით წაიშალა.");
+              } else {
+                  throw new Error("წაშლა ვერ მოხერხდა");
+              }
+          } catch (e: any) {
+              alert("შეცდომა წაშლისას: " + e.message);
+          } finally {
+              setDeleting(false);
+          }
+      }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+      if (window.confirm("ნამდვილად გსურთ ამ ჩანაწერის წაშლა?")) {
+          setLoadingHistory(true);
+          try {
+              await deleteTransaction(id);
+              // Optimistic update
+              setTransactions(prev => prev.filter(t => t.id !== id));
+          } catch (e) {
+              alert("ვერ წაიშალა");
+          } finally {
+              setLoadingHistory(false);
+          }
+      }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in relative">
@@ -199,6 +235,17 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {activeTab === 'history' && (
+              <button 
+                onClick={handleClearHistory} 
+                disabled={deleting}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow-sm disabled:opacity-50"
+              >
+                  {deleting ? <Loader2 size={18} className="animate-spin mr-2"/> : <Trash2 size={18} className="mr-2" />} 
+                  სრული ისტორიის წაშლა
+              </button>
+          )}
+
           {activeTab === 'inventory' && (
             <>
                 <button 
@@ -349,11 +396,12 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                             <th className="p-3 font-semibold text-gray-800">მიმღები / მომწოდებელი</th>
                             <th className="p-3 font-semibold text-gray-800">სტატუსი</th>
                             <th className="p-3 font-semibold text-gray-800">შენიშვნა</th>
+                            <th className="p-3 font-semibold text-gray-800 text-center">წაშლა</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loadingHistory ? (
-                             <tr><td colSpan={8} className="text-center p-4">იტვირთება...</td></tr>
+                             <tr><td colSpan={9} className="text-center p-4">იტვირთება...</td></tr>
                         ) : filteredTransactions.length > 0 ? (
                             filteredTransactions.map(tx => (
                                 <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 text-gray-900">
@@ -365,10 +413,19 @@ export const Reports: React.FC<ReportsProps> = ({ products }) => {
                                     <td className="p-3 text-gray-600">{tx.receiver || '-'}</td>
                                     <td className="p-3">{tx.isDebt ? <span className="flex items-center w-max px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700"><AlertOctagon size={10} className="mr-1" /> ვალი</span> : tx.resolutionDate ? <span className="flex items-center w-max px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700"><CheckCircle2 size={10} className="mr-1" /> დაიხურა</span> : '-'}</td>
                                     <td className="p-3 text-gray-500 max-w-xs truncate" title={tx.notes}>{tx.notes || '-'}</td>
+                                    <td className="p-3 text-center">
+                                        <button 
+                                            onClick={() => handleDeleteItem(tx.id)}
+                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
+                                            title="ჩანაწერის წაშლა"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))
                         ) : (
-                            <tr><td colSpan={8} className="text-center p-8 text-gray-400">ჩანაწერები ვერ მოიძებნა</td></tr>
+                            <tr><td colSpan={9} className="text-center p-8 text-gray-400">ჩანაწერები ვერ მოიძებნა</td></tr>
                         )}
                     </tbody>
                 </table>

@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { Save, X, Search, Calendar, Camera, Image as ImageIcon, ArrowDownCircle, ArrowUpCircle, User, Scale, FileWarning, ScanLine, UploadCloud, Loader2 } from 'lucide-react';
 import { ScannerModal } from './ScannerModal';
 import { ScannedItem } from '../services/aiScanner';
+import { saveOption } from '../services/storage';
 
 interface StockMovementFormProps {
   products: Product[];
@@ -18,7 +20,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const [receiver, setReceiver] = useState('');
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [isDebt, setIsDebt] = useState(false); // New State
+  const [isDebt, setIsDebt] = useState(false);
   
   const [searchNom, setSearchNom] = useState('');
   const [searchName, setSearchName] = useState('');
@@ -29,8 +31,6 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
   const colorClass = isOutbound ? 'orange' : 'green';
   const title = isOutbound ? 'საქონლის გატანა' : 'საქონლის მიღება';
 
-  // For Outbound, we only show products that have Stock > 0.
-  // For Inbound, we show ALL products (to restock zero items).
   const availableProducts = isOutbound 
     ? products.filter(p => p.quantity > 0) 
     : products;
@@ -101,22 +101,13 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
     onSubmit({
       productId: selectedProduct.id,
       quantity: qtyNum,
-      unit: selectedProduct.unit || 'pcs',
+      unit: selectedProduct.unit || 'ცალი',
       date,
       receiver,
       notes,
       images,
-      isDebt // Pass flag
+      isDebt
     });
-  };
-
-  const getUnitLabel = (u?: string) => {
-    switch(u) {
-      case 'kg': return 'კგ';
-      case 'm': return 'მეტრი';
-      case 'l': return 'ლიტრი';
-      default: return 'ცალი';
-    }
   };
 
   const handleBulkImport = async (items: ScannedItem[]) => {
@@ -124,7 +115,13 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
       setBulkProcessing(true);
 
       try {
-          // Iterate over items.
+          // Auto-add categories and units if they don't exist
+          const uniqueCats = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
+          const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
+
+          for (const cat of uniqueCats) await saveOption('categories', cat);
+          for (const unit of uniqueUnits) await saveOption('units', unit);
+
           let successCount = 0;
           let failCount = 0;
 
@@ -135,7 +132,7 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
                   await onSubmit({
                     productId: product.id,
                     quantity: item.quantity,
-                    unit: product.unit || 'pcs',
+                    unit: product.unit || 'ცალი',
                     date,
                     receiver,
                     notes: `Bulk Import (${notes})`,
@@ -242,28 +239,22 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
           {selectedProduct && (
             <div className="mt-2 p-3 bg-blue-50 text-blue-800 rounded text-sm border border-blue-100 flex justify-between">
               <span>ნაპოვნია: <strong>{selectedProduct.name}</strong></span>
-              <span>ნაშთი: <strong>{selectedProduct.quantity} {getUnitLabel(selectedProduct.unit)}</strong></span>
+              <span>ნაშთი: <strong>{selectedProduct.quantity} {selectedProduct.unit}</strong></span>
             </div>
           )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            
-           {/* Unit Display (Read Only) */}
            <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">საზომი ერთეული</label>
             <div className="relative">
               <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <select
+              <input
                 disabled
-                value={selectedProduct?.unit || 'pcs'}
-                className="w-full pl-9 pr-4 p-2.5 bg-gray-100 border border-gray-200 text-gray-500 rounded-lg outline-none cursor-not-allowed appearance-none"
-              >
-                <option value="pcs">ცალი (pcs)</option>
-                <option value="kg">წონა (kg)</option>
-                <option value="m">სიგრძე (m)</option>
-                <option value="l">მოცულობა (l)</option>
-              </select>
+                value={selectedProduct?.unit || 'ცალი'}
+                className="w-full pl-9 pr-4 p-2.5 bg-gray-100 border border-gray-200 text-gray-500 rounded-lg outline-none cursor-not-allowed"
+              />
             </div>
            </div>
 
@@ -296,7 +287,6 @@ export const StockMovementForm: React.FC<StockMovementFormProps> = ({ products, 
           </div>
         </div>
 
-        {/* Debt Checkbox (Only for Outbound) */}
         {isOutbound && (
             <div className="bg-red-50 p-4 rounded-lg border border-red-100 flex items-center">
                 <input

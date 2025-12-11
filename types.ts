@@ -1,5 +1,7 @@
+
 export type Role = 'admin' | 'editor' | 'viewer';
-export type Unit = 'pcs' | 'kg' | 'm' | 'l';
+// Unit is now a string to support dynamic units like "Box", "Set", "ცალი", "წყვილი" etc.
+export type Unit = string; 
 export type Theme = 'classic' | 'executive' | 'glass' | 'midnight' | 'nature' | 'sunset';
 
 export interface User {
@@ -16,7 +18,7 @@ export interface Product {
   name: string;
   category: string;
   quantity: number;
-  unit: Unit; // New field
+  unit: Unit;
   warehouse: string;
   rack: string;
   minQuantity: number;
@@ -33,14 +35,14 @@ export interface Transaction {
   productNomenclature: string;
   type: 'inbound' | 'outbound';
   quantity: number;
-  unit: Unit; // New field to track unit history
+  unit: Unit;
   date: string;
   receiver?: string;
   notes?: string;
   images?: string[];
-  isDebt?: boolean; // New field for "Pending Document/Debt"
-  resolutionImage?: string; // Photo of the document when debt is resolved
-  resolutionDate?: string; // Date when debt was resolved
+  isDebt?: boolean;
+  resolutionImage?: string;
+  resolutionDate?: string;
 }
 
 export type ViewState = 'dashboard' | 'inventory' | 'add' | 'edit' | 'reports' | 'custom_report' | 'inbound' | 'outbound' | 'users' | 'settings';

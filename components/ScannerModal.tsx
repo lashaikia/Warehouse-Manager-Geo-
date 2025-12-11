@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Camera, Image as ImageIcon, X, Loader2, ScanLine, FileSpreadsheet, CheckCircle2, Save, AlertTriangle, Trash2, CheckSquare, Square } from 'lucide-react';
 import { scanDocumentImage, ScannedItem } from '../services/aiScanner';
@@ -8,20 +9,12 @@ interface ScannerModalProps {
   onImport: (items: ScannedItem[]) => void;
 }
 
-// Extend internal item to track selection state
 interface LocalScannedItem extends ScannedItem {
   selected: boolean;
 }
 
 const DUPLICATE_COLORS = [
-  'bg-red-100',
-  'bg-orange-100',
-  'bg-yellow-100',
-  'bg-blue-100',
-  'bg-purple-100',
-  'bg-pink-100',
-  'bg-indigo-100',
-  'bg-teal-100'
+  'bg-red-100', 'bg-orange-100', 'bg-yellow-100', 'bg-blue-100', 'bg-purple-100', 'bg-pink-100', 'bg-indigo-100', 'bg-teal-100'
 ];
 
 export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport }) => {
@@ -30,12 +23,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'upload' | 'preview'>('upload');
 
-  // Calculate duplicates map: index -> color class
   const duplicateColorMap = useMemo(() => {
     const counts: Record<string, number[]> = {};
     const map: Record<number, string> = {};
 
-    // Group indices by nomenclature
     scannedItems.forEach((item, idx) => {
       const key = item.nomenclature.trim().toLowerCase();
       if (!key) return;
@@ -58,7 +49,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
   }, [scannedItems]);
 
   const processItems = (items: ScannedItem[]) => {
-      // Mark all as selected by default
       const localItems = items.map(i => ({ ...i, selected: true }));
       setScannedItems(localItems);
       setActiveTab('preview');
@@ -135,18 +125,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
           alert('გთხოვთ მონიშნოთ მინიმუმ ერთი ჩანაწერი');
           return;
       }
-      // Remove the 'selected' property before passing back
       const cleanItems = selected.map(({ selected, ...rest }) => rest);
       onImport(cleanItems);
-  };
-
-  const getUnitLabel = (u?: string) => {
-    switch(u) {
-      case 'kg': return 'კგ';
-      case 'm': return 'მ';
-      case 'l': return 'ლ';
-      default: return 'ც';
-    }
   };
 
   const allSelected = scannedItems.length > 0 && scannedItems.every(i => i.selected);
@@ -154,9 +134,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-[70] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col animate-fade-in overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col animate-fade-in overflow-hidden">
         
-        {/* Header */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <h3 className="text-lg font-bold text-gray-800 flex items-center">
                 <ScanLine className="mr-2 text-indigo-600" />
@@ -169,7 +148,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
 
         <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
             
-            {/* 1. UPLOAD VIEW */}
             {activeTab === 'upload' && (
                 <div className="h-full flex flex-col items-center justify-center space-y-8 py-10">
                      {loading ? (
@@ -182,8 +160,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                             <div className="text-center space-y-2">
                                 <h4 className="text-xl font-bold text-gray-800">აირჩიეთ წყარო</h4>
                                 <p className="text-gray-500 max-w-md mx-auto">
-                                    ატვირთეთ Excel-ის ცხრილი ან გადაუღეთ ფოტო დოკუმენტს.
-                                    სისტემა ავტომატურად ამოიღებს სიას.
+                                    ატვირთეთ Excel-ის ცხრილი (თანმიმდევრობა: №, კატეგორია, საწყობი, დასახელება, კოდი, ერთეული, რაოდენობა) ან გადაუღეთ ფოტო დოკუმენტს.
                                 </p>
                                 {error && (
                                     <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg flex items-center justify-center text-sm">
@@ -194,7 +171,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl px-4">
-                                {/* Excel */}
                                 <div className="relative group cursor-pointer">
                                     <div className="absolute inset-0 bg-green-100 rounded-2xl transform transition group-hover:scale-105"></div>
                                     <div className="relative bg-white border-2 border-green-100 p-6 rounded-2xl flex flex-col items-center text-center h-full transition group-hover:border-green-300">
@@ -202,13 +178,12 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                             <FileSpreadsheet size={32} />
                                         </div>
                                         <h5 className="font-bold text-gray-800 mb-1">Excel ფაილი</h5>
-                                        <p className="text-xs text-gray-400 mb-4">.xlsx, .xls (მხოლოდ 1 ტაბი)</p>
+                                        <p className="text-xs text-gray-400 mb-4">.xlsx, .xls</p>
                                         <span className="mt-auto inline-block px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg group-hover:bg-green-700 transition">ატვირთვა</span>
                                     </div>
                                     <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                 </div>
 
-                                {/* Image Gallery */}
                                 <div className="relative group cursor-pointer">
                                     <div className="absolute inset-0 bg-indigo-100 rounded-2xl transform transition group-hover:scale-105"></div>
                                     <div className="relative bg-white border-2 border-indigo-100 p-6 rounded-2xl flex flex-col items-center text-center h-full transition group-hover:border-indigo-300">
@@ -222,7 +197,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                     <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                 </div>
 
-                                {/* Camera */}
                                 <div className="relative group cursor-pointer">
                                     <div className="absolute inset-0 bg-blue-100 rounded-2xl transform transition group-hover:scale-105"></div>
                                     <div className="relative bg-white border-2 border-blue-100 p-6 rounded-2xl flex flex-col items-center text-center h-full transition group-hover:border-blue-300">
@@ -241,7 +215,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                 </div>
             )}
 
-            {/* 2. PREVIEW & EDIT VIEW */}
             {activeTab === 'preview' && (
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-lg shadow-sm gap-4">
@@ -252,10 +225,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                          <div className="flex items-center space-x-2 text-sm">
                              <div className="flex items-center px-2 py-1 bg-gray-100 rounded text-gray-600">
                                 <span className="w-3 h-3 rounded-full bg-red-100 border border-red-200 mr-2"></span>
-                                დუბლიკატები (ფერის მიხედვით)
+                                დუბლიკატები
                              </div>
                              <button onClick={() => { setScannedItems([]); setActiveTab('upload'); }} className="text-gray-500 hover:text-red-500 underline ml-2">
-                                 გაუქმება / თავიდან
+                                 გაუქმება
                              </button>
                          </div>
                     </div>
@@ -271,6 +244,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                             </button>
                                         </th>
                                         <th className="p-3 w-10">#</th>
+                                        <th className="p-3">კატეგორია</th>
+                                        <th className="p-3">საწყობი</th> {/* NEW COLUMN */}
                                         <th className="p-3">ნომენკლატურა</th>
                                         <th className="p-3">დასახელება</th>
                                         <th className="p-3 w-32 text-center">რაოდენობა</th>
@@ -292,12 +267,29 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                 </td>
                                                 <td className="p-3 text-gray-500 text-xs font-mono">{idx + 1}</td>
                                                 <td className="p-3">
+                                                     <input 
+                                                        type="text" 
+                                                        value={item.category} 
+                                                        onChange={(e) => handleItemChange(idx, 'category', e.target.value)}
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black text-xs shadow-sm"
+                                                        placeholder="კატეგორია..."
+                                                     />
+                                                </td>
+                                                <td className="p-3">
+                                                     <input 
+                                                        type="text" 
+                                                        value={item.warehouse} 
+                                                        onChange={(e) => handleItemChange(idx, 'warehouse', e.target.value)}
+                                                        className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black text-xs shadow-sm"
+                                                        placeholder="საწყობი..."
+                                                     />
+                                                </td>
+                                                <td className="p-3">
                                                     <input 
                                                         type="text" 
                                                         value={item.nomenclature} 
                                                         onChange={(e) => handleItemChange(idx, 'nomenclature', e.target.value)}
                                                         className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 font-mono text-black font-bold shadow-sm"
-                                                        placeholder="კოდი..."
                                                     />
                                                 </td>
                                                 <td className="p-3">
@@ -306,7 +298,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                         value={item.name} 
                                                         onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
                                                         className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black font-medium shadow-sm"
-                                                        placeholder="დასახელება..."
                                                     />
                                                 </td>
                                                 <td className="p-3">
@@ -318,16 +309,12 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                                     />
                                                 </td>
                                                 <td className="p-3">
-                                                     <select 
+                                                    <input 
+                                                        type="text"
                                                         value={item.unit}
                                                         onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
                                                         className="w-full p-1.5 border border-gray-200 hover:border-indigo-400 focus:border-indigo-600 rounded bg-white bg-opacity-50 text-black text-xs shadow-sm"
-                                                     >
-                                                         <option value="pcs">ცალი</option>
-                                                         <option value="kg">კგ</option>
-                                                         <option value="m">მ</option>
-                                                         <option value="l">მოცულობა (l)</option>
-                                                     </select>
+                                                    />
                                                 </td>
                                                 <td className="p-3 text-center">
                                                     <button onClick={() => handleDeleteItem(idx)} className="text-gray-400 hover:text-red-500 transition p-1 hover:bg-red-50 rounded">
@@ -345,7 +332,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
             )}
         </div>
         
-        {/* Footer */}
         {activeTab === 'preview' && (
             <div className="p-4 border-t border-gray-100 bg-white flex justify-end space-x-3">
                 <button 

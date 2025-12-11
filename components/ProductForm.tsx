@@ -1,13 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, Unit } from '../types';
 import { Save, X, Camera, Image as ImageIcon, ChevronDown, Calendar, Loader2, Scale, ScanLine, UploadCloud } from 'lucide-react';
-import { getOptions } from '../services/storage';
+import { getOptions, saveOption } from '../services/storage';
 import { ScannerModal } from './ScannerModal';
 import { ScannedItem } from '../services/aiScanner';
 
 interface ProductFormProps {
   initialData?: Product;
-  onSubmit: (data: Omit<Product, 'id' | 'lastUpdated'>) => void; // Used for single item save
+  onSubmit: (data: Omit<Product, 'id' | 'lastUpdated'>) => void;
   onCancel: () => void;
 }
 
@@ -17,18 +18,19 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
     name: '',
     category: '',
     quantity: 0,
-    unit: 'pcs' as Unit,
+    unit: 'ცალი' as Unit, // Default to Georgian 'Pcs'
     warehouse: '',
     rack: '',
     minQuantity: 5,
     dateAdded: new Date().toISOString().split('T')[0],
     images: [] as string[],
-    isLowStockTracked: true
+    isLowStockTracked: false // Defaulted to FALSE as requested
   });
 
   const [warehouseOptions, setWarehouseOptions] = useState<string[]>([]);
   const [rackOptions, setRackOptions] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [unitOptions, setUnitOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -38,9 +40,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
         const w = await getOptions('warehouses');
         const r = await getOptions('racks');
         const c = await getOptions('categories');
+        const u = await getOptions('units');
         setWarehouseOptions(w);
         setRackOptions(r);
         setCategoryOptions(c);
+        setUnitOptions(u);
     };
     loadOptions();
 
@@ -50,13 +54,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
         name: initialData.name,
         category: initialData.category,
         quantity: initialData.quantity,
-        unit: initialData.unit || 'pcs',
+        unit: initialData.unit || 'ცალი',
         warehouse: initialData.warehouse || '',
         rack: initialData.rack || '',
         minQuantity: initialData.minQuantity,
         dateAdded: initialData.dateAdded || new Date().toISOString().split('T')[0],
         images: initialData.images || [],
-        isLowStockTracked: initialData.isLowStockTracked ?? true
+        isLowStockTracked: initialData.isLowStockTracked ?? false
       });
     }
   }, [initialData]);
@@ -106,24 +110,38 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
       setBulkProcessing(true);
       
       try {
-          // Loop through items and save them using the onSubmit prop logic
-          let count = 0;
+          // 1. Identify new Categories, Units AND Warehouses
+          const uniqueCats = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
+          const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
+          const uniqueWarehouses = Array.from(new Set(items.map(i => i.warehouse).filter(Boolean)));
+
+          // 2. Auto-save them to settings if they don't exist
+          for (const cat of uniqueCats) {
+             await saveOption('categories', cat);
+          }
+          for (const unit of uniqueUnits) {
+             await saveOption('units', unit);
+          }
+          for (const wh of uniqueWarehouses) {
+             await saveOption('warehouses', wh);
+          }
+
+          // 3. Process Items
           for (const item of items) {
               const productData: Omit<Product, 'id' | 'lastUpdated'> = {
                   nomenclature: item.nomenclature,
                   name: item.name,
-                  category: formData.category || 'სხვა', // Use current form defaults if scanner didn't provide
+                  category: item.category || formData.category || 'სხვა',
                   quantity: item.quantity,
-                  unit: (item.unit as Unit) || 'pcs',
-                  warehouse: formData.warehouse || '',
+                  unit: item.unit || 'ცალი',
+                  warehouse: item.warehouse || formData.warehouse || '', 
                   rack: formData.rack || '',
                   minQuantity: formData.minQuantity,
                   dateAdded: formData.dateAdded,
                   images: [],
-                  isLowStockTracked: formData.isLowStockTracked
+                  isLowStockTracked: false // Explicitly disabled for bulk import
               };
               await onSubmit(productData);
-              count++;
           }
       } catch (e) {
           console.error("Bulk save error", e);
@@ -137,7 +155,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
       return (
           <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in">
               <Loader2 size={64} className="text-indigo-600 animate-spin mb-6" />
-              <h2 className="text-2xl font-bold text-gray-800">მიმდინარეობს იმპორტი...</h2>
+              <h2 className="text-2xl font-bold text-gray-800">მიმდინარეობს იმპორტი და კატეგორიების განახლება...</h2>
               <p className="text-gray-500 mt-2">გთხოვთ დაელოდოთ</p>
           </div>
       );
@@ -212,17 +230,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
             <label className="text-sm font-medium text-gray-700">საზომი ერთეული</label>
             <div className="relative">
               <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <select
+              <input
+                list="unit-options"
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
                 className="w-full pl-9 pr-4 p-2.5 bg-white border border-gray-200 text-black rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="pcs">ცალი (pcs)</option>
-                <option value="kg">წონა (kg)</option>
-                <option value="m">სიგრძე (m)</option>
-                <option value="l">მოცულობა (l)</option>
-              </select>
+                placeholder="აირჩიეთ ან ჩაწერეთ..."
+              />
+              <datalist id="unit-options">
+                  {unitOptions.map(u => <option key={u} value={u} />)}
+              </datalist>
             </div>
           </div>
 

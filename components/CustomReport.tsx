@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Transaction } from '../types';
-import { Printer, FileSpreadsheet, Package, History, CheckCircle2, AlertOctagon, ArrowRight, Loader2 } from 'lucide-react';
-import { getTransactions } from '../services/storage';
+import { Printer, FileSpreadsheet, Package, History, CheckCircle2, AlertOctagon, ArrowRight, Loader2, Trash2 } from 'lucide-react';
+import { getTransactions, clearTransactionsCollection, deleteTransaction } from '../services/storage';
 
 interface CustomReportProps {
   products: Product[];
@@ -11,6 +12,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Filter States
   const [filters, setFilters] = useState({
@@ -38,7 +40,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
         setLoading(false);
     };
     load();
-  }, []);
+  }, [activeTab]); // Refresh when tab changes or initially
 
   // Unique options for dropdowns
   const uniqueCategories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort(), [products]);
@@ -71,6 +73,39 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
         isDebt: false,
         useRange: true
       });
+  };
+
+  const handleClearHistory = async () => {
+    if(window.confirm("ყურადღება! ნამდვილად გსურთ სრული ისტორიის წაშლა?")) {
+        setDeleting(true);
+        try {
+            const success = await clearTransactionsCollection();
+            if (success) {
+                setTransactions([]);
+                alert("ისტორია წარმატებით წაიშალა.");
+            } else {
+                throw new Error("წაშლა ვერ მოხერხდა");
+            }
+        } catch(e: any) {
+            alert("შეცდომა: " + e.message);
+        } finally {
+            setDeleting(false);
+        }
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (window.confirm("ნამდვილად გსურთ ამ ჩანაწერის წაშლა?")) {
+        setLoading(true);
+        try {
+            const updated = await deleteTransaction(id);
+            setTransactions(updated);
+        } catch (e) {
+            alert("ვერ წაიშალა");
+        } finally {
+            setLoading(false);
+        }
+    }
   };
 
   // --- FILTERING LOGIC ---
@@ -421,6 +456,16 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                 {activeTab === 'history' && (
+                    <button 
+                        onClick={handleClearHistory} 
+                        disabled={deleting}
+                        className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition text-sm flex items-center disabled:opacity-50"
+                    >
+                        {deleting ? <Loader2 size={16} className="animate-spin mr-2"/> : <Trash2 size={16} className="mr-2"/>}
+                        ისტორიის წაშლა
+                    </button>
+                 )}
                  <button onClick={clearFilters} className="px-4 py-2 text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-sm">გასუფთავება</button>
                  <button onClick={handleExport} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition text-sm flex items-center"><FileSpreadsheet size={16} className="mr-2"/> Excel</button>
                  <button onClick={handlePrint} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition text-sm flex items-center"><Printer size={16} className="mr-2"/> ბეჭდვა</button>
@@ -457,6 +502,7 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                             <th className="p-3">მიმღები/მომწოდებელი</th>
                             <th className="p-3">სტატუსი</th>
                             <th className="p-3">შენიშვნა</th>
+                            <th className="p-3 text-center">წაშლა</th>
                           </tr>
                        )}
                    </thead>
@@ -489,11 +535,20 @@ export const CustomReport: React.FC<CustomReportProps> = ({ products }) => {
                                         {item.isDebt ? <span className="text-xs font-bold text-purple-600 flex items-center"><AlertOctagon size={12} className="mr-1"/> ვალი</span> : item.resolutionDate ? <span className="text-xs font-bold text-green-600 flex items-center"><CheckCircle2 size={12} className="mr-1"/> დაიხურა</span> : '-'}
                                     </td>
                                     <td className="p-3 text-gray-500 max-w-xs truncate">{item.notes || '-'}</td>
+                                    <td className="p-3 text-center">
+                                        <button 
+                                            onClick={() => handleDeleteItem(item.id)}
+                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
+                                            title="ჩანაწერის წაშლა"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
                                    </>
                                )}
                            </tr>
                        )) : (
-                           <tr><td colSpan={8} className="text-center p-8 text-gray-400">მონაცემები არ მოიძებნა</td></tr>
+                           <tr><td colSpan={9} className="text-center p-8 text-gray-400">მონაცემები არ მოიძებნა</td></tr>
                        )}
                    </tbody>
                </table>

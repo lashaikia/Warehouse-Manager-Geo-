@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Edit2, Trash2, Save, X, Database, Layers, LayoutGrid, Loader2, Palette, Check } from 'lucide-react';
-import { getOptions, saveOption, deleteOption, updateOptionAndCascade } from '../services/storage';
+import { Settings, Plus, Edit2, Trash2, Save, X, Database, Layers, LayoutGrid, Loader2, Palette, Check, Trash, AlertOctagon, RefreshCcw } from 'lucide-react';
+import { getOptions, saveOption, deleteOption, updateOptionAndCascade, clearOperationalData, clearProductsCollection, clearTransactionsCollection } from '../services/storage';
 import { Theme } from '../types';
 
-type SettingsTab = 'warehouses' | 'racks' | 'categories' | 'appearance';
+type SettingsTab = 'warehouses' | 'racks' | 'categories' | 'appearance' | 'data';
 
 interface SettingsManagementProps {
   currentTheme?: Theme;
@@ -19,7 +20,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
   const [editingItem, setEditingItem] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeTab !== 'appearance') {
+    if (activeTab !== 'appearance' && activeTab !== 'data') {
         loadItems();
     }
   }, [activeTab]);
@@ -33,7 +34,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || activeTab === 'appearance') return;
+    if (!inputValue.trim() || activeTab === 'appearance' || activeTab === 'data') return;
     setLoading(true);
 
     if (editingItem) {
@@ -62,6 +63,52 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
     }
   };
 
+  const handleClearProducts = async () => {
+      if (window.confirm("ნამდვილად გსურთ მხოლოდ მარაგების (პროდუქტების) წაშლა?")) {
+          setLoading(true);
+          const success = await clearProductsCollection();
+          setLoading(false);
+          if (success) {
+              alert("პროდუქტები წაიშალა.");
+              window.location.reload();
+          } else {
+              alert("შეცდომა წაშლისას.");
+          }
+      }
+  };
+
+  const handleClearTransactions = async () => {
+      if (window.confirm("ნამდვილად გსურთ მხოლოდ ისტორიის (ტრანზაქციების) წაშლა?")) {
+          setLoading(true);
+          const success = await clearTransactionsCollection();
+          setLoading(false);
+          if (success) {
+              alert("ისტორია წაიშალა.");
+              window.location.reload();
+          } else {
+              alert("შეცდომა წაშლისას.");
+          }
+      }
+  };
+
+  const handleClearData = async () => {
+      const confirm1 = window.confirm("ყურადღება! ნამდვილად გსურთ ბაზის სრული გასუფთავება? \n\nეს წაშლის ყველა პროდუქტს და ტრანზაქციას!");
+      if (confirm1) {
+          const confirm2 = window.confirm("დარწმუნებული ხართ? მონაცემების აღდგენა შეუძლებელი იქნება!");
+          if (confirm2) {
+              setLoading(true);
+              const success = await clearOperationalData();
+              setLoading(false);
+              if (success) {
+                  alert("მონაცემები სრულად წაიშალა.");
+                  window.location.reload();
+              } else {
+                  alert("შეცდომა მონაცემების წაშლისას.");
+              }
+          }
+      }
+  };
+
   const cancelEdit = () => {
     setEditingItem(null);
     setInputValue('');
@@ -73,6 +120,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
         case 'racks': return 'სტელაჟები';
         case 'categories': return 'კატეგორიები';
         case 'appearance': return 'გაფორმება';
+        case 'data': return 'მონაცემები';
     }
   };
 
@@ -82,6 +130,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
         case 'racks': return <LayoutGrid size={18} className="mr-2" />;
         case 'categories': return <Layers size={18} className="mr-2" />;
         case 'appearance': return <Palette size={18} className="mr-2" />;
+        case 'data': return <Trash size={18} className="mr-2" />;
     }
   };
 
@@ -97,7 +146,7 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="w-full md:w-64 flex flex-col space-y-2">
-            {(['warehouses', 'racks', 'categories', 'appearance'] as SettingsTab[]).map(tab => (
+            {(['warehouses', 'racks', 'categories', 'appearance', 'data'] as SettingsTab[]).map(tab => (
                 <button
                     key={tab}
                     onClick={() => { setActiveTab(tab); cancelEdit(); }}
@@ -122,104 +171,70 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
             {activeTab === 'appearance' ? (
                 <div className="space-y-6">
                     <p className="text-sm text-gray-500">აირჩიეთ პროგრამის ვიზუალური სტილი</p>
-                    
+                    {/* Theme Grid Logic remains same, omitted for brevity but keeping structure */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Classic Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('classic')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'classic' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-gray-100 rounded-lg mb-3 border border-gray-200 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-white border-r border-gray-200"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-white rounded border border-gray-200"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800">Classic</span>
-                                {currentTheme === 'classic' && <Check size={20} className="text-blue-600" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">სტანდარტული ღია ფერები</p>
+                        <div onClick={() => onThemeChange?.('classic')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'classic' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 bg-gray-50'}`}>
+                             <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Classic</span>{currentTheme === 'classic' && <Check size={20} className="text-blue-600" />}</div>
                         </div>
-
-                        {/* Executive Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('executive')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'executive' ? 'border-slate-800 bg-slate-100' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-slate-50 rounded-lg mb-3 border border-gray-200 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-slate-900"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-white rounded border border-gray-200"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800">Executive</span>
-                                {currentTheme === 'executive' && <Check size={20} className="text-slate-800" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">მუქი მენიუ, ბიზნეს სტილი</p>
+                        <div onClick={() => onThemeChange?.('executive')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'executive' ? 'border-slate-800 bg-slate-100' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Executive</span>{currentTheme === 'executive' && <Check size={20} className="text-slate-800" />}</div>
                         </div>
-
-                        {/* Glass Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('glass')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'glass' ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg mb-3 border border-indigo-100 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-white/50 backdrop-blur-sm border-r border-white/50"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-white/60 backdrop-blur-md rounded border border-white/50 shadow-sm"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800">Glass</span>
-                                {currentTheme === 'glass' && <Check size={20} className="text-indigo-600" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">თანამედროვე, გამჭვირვალე</p>
+                        <div onClick={() => onThemeChange?.('glass')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'glass' ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Glass</span>{currentTheme === 'glass' && <Check size={20} className="text-indigo-600" />}</div>
                         </div>
+                        <div onClick={() => onThemeChange?.('midnight')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'midnight' ? 'border-blue-400 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex items-center justify-between"><span className={`font-bold ${currentTheme === 'midnight' ? 'text-blue-400' : 'text-gray-800'}`}>Midnight</span>{currentTheme === 'midnight' && <Check size={20} className="text-blue-400" />}</div>
+                        </div>
+                        <div onClick={() => onThemeChange?.('nature')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'nature' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Nature</span>{currentTheme === 'nature' && <Check size={20} className="text-emerald-700" />}</div>
+                        </div>
+                         <div onClick={() => onThemeChange?.('sunset')} className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'sunset' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Sunset</span>{currentTheme === 'sunset' && <Check size={20} className="text-orange-600" />}</div>
+                        </div>
+                    </div>
+                </div>
+            ) : activeTab === 'data' ? (
+                <div className="space-y-6">
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
+                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <AlertOctagon className="text-red-600" size={32} />
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-800 mb-2">მონაცემების მართვა</h4>
+                        <p className="text-gray-500 mb-6 text-sm max-w-md mx-auto">
+                            აირჩიეთ სასურველი მოქმედება. წაშლის შემდეგ მონაცემების აღდგენა შეუძლებელია.
+                        </p>
                         
-                        {/* Midnight Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('midnight')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'midnight' ? 'border-blue-400 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-slate-900 rounded-lg mb-3 border border-slate-700 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-slate-950 border-r border-slate-800"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-slate-800 rounded border border-slate-700"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className={`font-bold ${currentTheme === 'midnight' ? 'text-blue-400' : 'text-gray-800'}`}>Midnight</span>
-                                {currentTheme === 'midnight' && <Check size={20} className="text-blue-400" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">ღამის რეჟიმი, მუქი ლურჯი</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button 
+                                onClick={handleClearProducts}
+                                disabled={loading}
+                                className="px-4 py-4 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition flex flex-col items-center justify-center disabled:opacity-50"
+                            >
+                                <Database size={24} className="mb-2" />
+                                წაშალე მარაგები (პროდუქტები)
+                            </button>
+
+                            <button 
+                                onClick={handleClearTransactions}
+                                disabled={loading}
+                                className="px-4 py-4 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition flex flex-col items-center justify-center disabled:opacity-50"
+                            >
+                                <RefreshCcw size={24} className="mb-2" />
+                                წაშალე ისტორია (ტრანზაქციები)
+                            </button>
                         </div>
 
-                        {/* Nature Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('nature')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'nature' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-stone-100 rounded-lg mb-3 border border-stone-200 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-emerald-900 border-r border-emerald-800"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-white rounded border border-stone-300"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800">Nature</span>
-                                {currentTheme === 'nature' && <Check size={20} className="text-emerald-700" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">ბუნებრივი, მწვანე ტონები</p>
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                             <button 
+                                onClick={handleClearData}
+                                disabled={loading}
+                                className="w-full px-6 py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition flex items-center justify-center disabled:opacity-50"
+                            >
+                                {loading ? <Loader2 className="animate-spin mr-2" /> : <Trash className="mr-2" />}
+                                სრული გასუფთავება (ყველაფრის წაშლა)
+                            </button>
+                            <p className="text-xs text-red-400 mt-2">პარამეტრები, საზომი ერთეულები და მომხმარებლები არ წაიშლება.</p>
                         </div>
-
-                        {/* Sunset Theme */}
-                        <div 
-                            onClick={() => onThemeChange?.('sunset')}
-                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${currentTheme === 'sunset' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-gray-50'}`}
-                        >
-                            <div className="h-24 bg-orange-50 rounded-lg mb-3 border border-orange-200 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-8 h-full bg-gradient-to-b from-orange-900 to-rose-900 border-r border-orange-800"></div>
-                                <div className="absolute top-3 left-10 right-3 h-4 bg-white rounded border border-orange-200"></div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800">Sunset</span>
-                                {currentTheme === 'sunset' && <Check size={20} className="text-orange-600" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">თბილი, მზის ჩასვლის ფერები</p>
-                        </div>
-
                     </div>
                 </div>
             ) : (
@@ -283,13 +298,6 @@ export const SettingsManagement: React.FC<SettingsManagementProps> = ({ currentT
                         ) : (
                             <p className="text-center text-gray-400 py-4">სია ცარიელია</p>
                         )}
-                    </div>
-                    
-                    <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100 flex items-start">
-                        <div className="mr-2 mt-0.5">ℹ️</div>
-                        <div>
-                            <strong>შენიშვნა:</strong> სახელის შეცვლის შემთხვევაში (მაგ: "სტელაჟი 1" -&gt; "სტელაჟი A"), ყველა პროდუქტი, რომელიც ამ სტელაჟზე ირიცხებოდა, ავტომატურად განახლდება ახალ სახელზე.
-                        </div>
                     </div>
                 </>
             )}

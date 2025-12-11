@@ -305,33 +305,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, theme = 'classic
         </div>
       </div>
 
-      <div className={`${getCardStyle()} p-6 rounded-xl relative group`}>
-        <div className="flex justify-between items-center mb-4">
-             <h3 className={`text-lg font-semibold ${theme === 'midnight' ? 'text-gray-200' : 'text-gray-700'}`}>ასორტიმენტი კატეგორიების მიხედვით (დასახელება)</h3>
-             <button onClick={() => setExpandedChart(true)} className="text-gray-400 hover:text-blue-600 transition"><Maximize2 size={20} /></button>
-        </div>
-        <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={categoryData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'glass' ? '#cbd5e1' : (theme === 'midnight' ? '#334155' : '#e5e7eb')} />
-                <XAxis dataKey="name" stroke={theme === 'midnight' ? '#94a3b8' : '#666'} />
-                <YAxis allowDecimals={false} stroke={theme === 'midnight' ? '#94a3b8' : '#666'} /> 
-                <Tooltip 
-                formatter={(value) => [`${value} დასახელება`, 'რაოდენობა']}
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} fillOpacity={theme === 'glass' ? 0.8 : 1} />
-                ))}
-                </Bar>
-            </BarChart>
-            </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Utilities & Fun */}
-      <div className="flex justify-center mt-8 space-x-6">
+      {/* Utilities & Fun - Moved UP here */}
+      <div className="flex justify-center my-6 space-x-6">
         
         {/* Calculator Button */}
         <button 
@@ -359,6 +334,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, theme = 'classic
           <FileEdit size={20} />
           <span className="font-bold tracking-wide text-sm">ბლოკნოტი</span>
         </button>
+      </div>
+
+      <div className={`${getCardStyle()} p-6 rounded-xl relative group`}>
+        <div className="flex justify-between items-center mb-4">
+             <h3 className={`text-lg font-semibold ${theme === 'midnight' ? 'text-gray-200' : 'text-gray-700'}`}>ასორტიმენტი კატეგორიების მიხედვით (დასახელება)</h3>
+             <button onClick={() => setExpandedChart(true)} className="text-gray-400 hover:text-blue-600 transition"><Maximize2 size={20} /></button>
+        </div>
+        <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'glass' ? '#cbd5e1' : (theme === 'midnight' ? '#334155' : '#e5e7eb')} />
+                <XAxis dataKey="name" stroke={theme === 'midnight' ? '#94a3b8' : '#666'} />
+                <YAxis allowDecimals={false} stroke={theme === 'midnight' ? '#94a3b8' : '#666'} /> 
+                <Tooltip 
+                formatter={(value) => [`${value} დასახელება`, 'რაოდენობა']}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {categoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} fillOpacity={theme === 'glass' ? 0.8 : 1} />
+                ))}
+                </Bar>
+            </BarChart>
+            </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Expanded Chart Modal */}

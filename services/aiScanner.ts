@@ -6,13 +6,14 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export interface ScannedItem {
   nomenclature: string;
   name: string;
+  category: string;
+  warehouse: string; // Added warehouse
   quantity: number;
   unit: string;
 }
 
 export const scanDocumentImage = async (base64Image: string): Promise<ScannedItem[]> => {
   try {
-    // სურათის ფორმატირების გასწორება (data:image/png;base64, ნაწილის მოცილება)
     const cleanBase64 = base64Image.split(',')[1];
 
     const response = await ai.models.generateContent({
@@ -21,7 +22,7 @@ export const scanDocumentImage = async (base64Image: string): Promise<ScannedIte
         parts: [
           {
             inlineData: {
-              mimeType: 'image/jpeg', // ვუშვებთ რომ უმეტესად JPEG/PNG იქნება
+              mimeType: 'image/jpeg',
               data: cleanBase64
             }
           },
@@ -31,8 +32,10 @@ export const scanDocumentImage = async (base64Image: string): Promise<ScannedIte
             For each item, identify:
             1. Nomenclature/Code (string) - Look for columns like 'Code', 'ID', 'კოდი'.
             2. Name (string) - Look for 'Name', 'Description', 'დასახელება'.
-            3. Quantity (number) - Look for 'Qty', 'Amount', 'რაოდენობა', 'ნაშთი'.
-            4. Unit (string) - Look for 'Unit', 'Dimensions', 'განზომილება'. Map strictly to one of: 'pcs', 'kg', 'm', 'l'. Default to 'pcs' if unclear.
+            3. Category (string) - Look for 'Category', 'კატეგორია'.
+            4. Warehouse (string) - Look for 'Warehouse', 'Location', 'საწყობი'.
+            5. Quantity (number) - Look for 'Qty', 'Amount', 'რაოდენობა', 'ნაშთი'.
+            6. Unit (string) - Look for 'Unit', 'Dimensions', 'განზომილება', 'ერთეული'. Return exact text found (e.g. 'ცალი', 'კგ').
             
             Return the result in JSON format.`
           }
@@ -47,8 +50,10 @@ export const scanDocumentImage = async (base64Image: string): Promise<ScannedIte
             properties: {
               nomenclature: { type: Type.STRING },
               name: { type: Type.STRING },
+              category: { type: Type.STRING },
+              warehouse: { type: Type.STRING },
               quantity: { type: Type.NUMBER },
-              unit: { type: Type.STRING, enum: ['pcs', 'kg', 'm', 'l'] }
+              unit: { type: Type.STRING }
             },
             required: ['name', 'quantity']
           }
