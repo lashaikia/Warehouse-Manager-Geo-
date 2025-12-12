@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
-import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon, AlertTriangle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface ProductListProps {
   products: Product[];
@@ -13,8 +14,12 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
   const [searchTerm, setSearchTerm] = useState('');
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
-  // Filter: Matches search term AND has quantity > 0
+  // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = 
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -22,12 +27,23 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
         product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Only show active products (though inventory usually shows all, the previous code filtered for > 0. 
-    // Wait, usually inventory management should show everything.
-    // The user said "From the warehouse inventory list...".
-    // I will stick to the existing filter logic for the list view as requested.
-    return matchesSearch && product.quantity > 0;
+    // Inventory usually shows everything including zero stock, but if you want only active:
+    // return matchesSearch && product.quantity > 0;
+    // Keeping it showing all for inventory management purposes:
+    return matchesSearch;
   });
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Calculate Pagination
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
 
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const canDelete = userRole === 'admin';
@@ -50,10 +66,19 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
       }
   };
 
+  // Pagination Handlers
+  const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const firstPage = () => setCurrentPage(1);
+  const lastPage = () => setCurrentPage(totalPages);
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">საწყობის მარაგები</h2>
+        <div>
+            <h2 className="text-2xl font-bold text-gray-800">საწყობის მარაგები</h2>
+            <p className="text-sm text-gray-500">სულ: {totalItems} ჩანაწერი</p>
+        </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input 
@@ -71,6 +96,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold">
+                <th className="p-4 w-16">#</th>
                 <th className="p-4 w-16">ფოტო</th>
                 <th className="p-4">ნომენკლატურა</th>
                 <th className="p-4">დასახელება</th>
@@ -81,23 +107,25 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
+              {currentItems.length > 0 ? (
+                currentItems.map((product, index) => {
                   const isLowStock = product.isLowStockTracked && (product.quantity <= product.minQuantity);
                   const hasImage = product.images && product.images.length > 0;
+                  const globalIndex = indexOfFirstItem + index + 1;
 
                   return (
                     <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4 text-xs text-gray-400 font-mono">{globalIndex}</td>
                       <td className="p-4">
-                        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
                           {hasImage ? (
                             <img src={product.images[0]} alt="thumbnail" className="w-full h-full object-cover" />
                           ) : (
-                            <ImageIcon size={20} className="text-gray-400" />
+                            <ImageIcon size={16} className="text-gray-400" />
                           )}
                         </div>
                       </td>
-                      <td className="p-4 font-mono text-sm text-gray-600">{product.nomenclature}</td>
+                      <td className="p-4 font-mono text-sm text-gray-600 font-bold">{product.nomenclature}</td>
                       <td className="p-4 text-gray-800 font-medium">{product.name}</td>
                       <td className="p-4">
                         <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
@@ -116,7 +144,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <span className={`font-semibold text-lg ${isLowStock ? 'text-red-600' : 'text-gray-700'}`}>
+                          <span className={`font-semibold ${isLowStock ? 'text-red-600' : 'text-gray-700'}`}>
                             {product.quantity} <span className="text-xs font-normal text-gray-500 ml-1">{getUnitLabel(product.unit)}</span>
                           </span>
                           {isLowStock && (
@@ -135,19 +163,19 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
                             {canEdit && (
                               <button 
                                 onClick={() => onEdit(product)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                 title="რედაქტირება"
                               >
-                                <Edit2 size={18} />
+                                <Edit2 size={16} />
                               </button>
                             )}
                             {canDelete && (
                               <button 
                                 onClick={() => setProductToDelete(product)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
                                 title="წაშლა"
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
@@ -158,7 +186,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
                 })
               ) : (
                 <tr>
-                  <td colSpan={canEdit || canDelete ? 7 : 6} className="p-8 text-center text-gray-500">
+                  <td colSpan={canEdit || canDelete ? 8 : 7} className="p-8 text-center text-gray-500">
                     {searchTerm ? 'მონაცემები ვერ მოიძებნა' : 'საწყობი ცარიელია'}
                   </td>
                 </tr>
@@ -166,9 +194,55 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
             </tbody>
           </table>
         </div>
-        <div className="p-4 border-t border-gray-100 bg-gray-50 text-right text-sm text-gray-500">
-          აქტიური ჩანაწერი: {filteredProducts.length}
-        </div>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <span className="text-sm text-gray-500">
+                    ნაჩვენებია {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, totalItems)} / {totalItems}
+                </span>
+                
+                <div className="flex items-center space-x-2">
+                    <button 
+                        onClick={firstPage}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
+                        title="პირველი გვერდი"
+                    >
+                        <ChevronsLeft size={16} />
+                    </button>
+                    <button 
+                        onClick={prevPage}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
+                        title="წინა"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    
+                    <span className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg">
+                        გვერდი {currentPage} / {totalPages}
+                    </span>
+
+                    <button 
+                        onClick={nextPage}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
+                        title="შემდეგი"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                    <button 
+                        onClick={lastPage}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
+                        title="ბოლო გვერდი"
+                    >
+                        <ChevronsRight size={16} />
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

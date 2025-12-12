@@ -109,11 +109,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
   const handleBulkImport = async (items: ScannedItem[]) => {
       setIsScannerOpen(false);
       setBulkProcessing(true);
-      setBulkStatus("მოწმდება დუბლირებები...");
+      setBulkStatus("მიმდინარეობს ბაზის შემოწმება...");
       
       try {
           // 1. Fetch ALL existing products to check for duplicates
-          // This ensures we have the latest DB state
           const existingProducts = await getProducts();
           const existingNomenclatures = new Set(existingProducts.map(p => p.nomenclature.trim().toLowerCase()));
           const existingNames = new Set(existingProducts.map(p => p.name.trim().toLowerCase()));
@@ -128,22 +127,27 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
           const newWarehouses = new Set<string>();
 
           for (const item of items) {
-              const cleanNom = item.nomenclature.trim().toLowerCase();
-              const cleanName = item.name.trim().toLowerCase();
+              const cleanNom = String(item.nomenclature || '').trim().toLowerCase();
+              const cleanName = String(item.name || '').trim().toLowerCase();
+
+              if (!cleanNom && !cleanName) continue;
 
               // Check if exists
-              if (existingNomenclatures.has(cleanNom) || existingNames.has(cleanName)) {
+              if ((cleanNom && existingNomenclatures.has(cleanNom)) || (cleanName && existingNames.has(cleanName))) {
                   skippedCount++;
                   continue;
               }
 
-              // Add to queue
+              // Validate Unit - if unknown, default to 'ცალი'
+              const safeUnit = (item.unit && item.unit.length < 20) ? item.unit : 'ცალი';
+
+              // Add to queue with safe casting
               productsToAdd.push({
-                  nomenclature: item.nomenclature.trim(),
-                  name: item.name.trim(),
+                  nomenclature: String(item.nomenclature || '').trim(),
+                  name: String(item.name || '').trim(),
                   category: item.category || formData.category || 'სხვა',
-                  quantity: item.quantity,
-                  unit: item.unit || 'ცალი',
+                  quantity: Number(item.quantity) || 0,
+                  unit: safeUnit,
                   warehouse: item.warehouse || formData.warehouse || '', 
                   rack: formData.rack || '',
                   minQuantity: formData.minQuantity,
@@ -154,7 +158,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
 
               // Track options to update settings
               if (item.category) newCats.add(item.category);
-              if (item.unit) newUnits.add(item.unit);
+              if (safeUnit) newUnits.add(safeUnit);
               if (item.warehouse) newWarehouses.add(item.warehouse);
           }
 
@@ -164,14 +168,19 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
           newCats.forEach(c => optionPromises.push(saveOption('categories', c)));
           newUnits.forEach(u => optionPromises.push(saveOption('units', u)));
           newWarehouses.forEach(w => optionPromises.push(saveOption('warehouses', w)));
-          await Promise.all(optionPromises);
+          
+          try {
+             await Promise.all(optionPromises);
+          } catch(e) {
+             console.warn("Error updating settings options", e);
+          }
 
           // 4. Batch Save Products
           if (productsToAdd.length > 0) {
               setBulkStatus(`იწერება ${productsToAdd.length} ჩანაწერი...`);
-              await batchSaveProducts(productsToAdd);
-              alert(`იმპორტი დასრულდა!\n\nდაემატა: ${productsToAdd.length}\nგამოტოვებულია (დუბლირება): ${skippedCount}`);
-              window.location.reload(); // Refresh to show new data
+              const processed = await batchSaveProducts(productsToAdd);
+              alert(`იმპორტი დასრულდა!\n\nწარმატებით დაემატა: ${processed}\nგამოტოვებულია (დუბლირება): ${skippedCount}`);
+              window.location.reload(); 
           } else {
               alert(`არაფერია დასამატებელი.\nყველა ჩანაწერი (${skippedCount}) უკვე არსებობს ბაზაში.`);
               setBulkProcessing(false);
@@ -179,7 +188,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
 
       } catch (e) {
           console.error("Bulk save error", e);
-          alert("შეცდომა ჯგუფური შენახვისას");
+          alert("შეცდომა ჯგუფური შენახვისას. გთხოვთ შეამოწმოთ კონსოლი.");
           setBulkProcessing(false);
       }
   };
