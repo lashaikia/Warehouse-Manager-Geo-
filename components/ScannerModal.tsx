@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Camera, Image as ImageIcon, X, Loader2, ScanLine, FileSpreadsheet, CheckCircle2, Save, AlertTriangle, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Camera, Image as ImageIcon, X, Loader2, ScanLine, FileSpreadsheet, CheckCircle2, Save, AlertTriangle, Trash2, CheckSquare, Square, Info } from 'lucide-react';
 import { scanDocumentImage, ScannedItem } from '../services/aiScanner';
 import { parseExcelFile } from '../services/excelService';
 
@@ -23,7 +23,13 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'upload' | 'preview'>('upload');
 
+  // Optimization: Only render first 100 items to prevent UI freeze on 3000+ items
+  const [renderLimit, setRenderLimit] = useState(100);
+
   const duplicateColorMap = useMemo(() => {
+    // Optimization: Calculate duplicates only for rendered items or disable for massive lists
+    if (scannedItems.length > 500) return {};
+
     const counts: Record<string, number[]> = {};
     const map: Record<number, string> = {};
 
@@ -125,6 +131,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
           alert('გთხოვთ მონიშნოთ მინიმუმ ერთი ჩანაწერი');
           return;
       }
+      // Pass pure ScannedItem objects
       const cleanItems = selected.map(({ selected, ...rest }) => rest);
       onImport(cleanItems);
   };
@@ -223,15 +230,21 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                              სულ: {scannedItems.length} | მონიშნულია: {selectedCount}
                          </div>
                          <div className="flex items-center space-x-2 text-sm">
-                             <div className="flex items-center px-2 py-1 bg-gray-100 rounded text-gray-600">
-                                <span className="w-3 h-3 rounded-full bg-red-100 border border-red-200 mr-2"></span>
-                                დუბლიკატები
-                             </div>
                              <button onClick={() => { setScannedItems([]); setActiveTab('upload'); }} className="text-gray-500 hover:text-red-500 underline ml-2">
                                  გაუქმება
                              </button>
                          </div>
                     </div>
+                    
+                    {/* Warning for large datasets */}
+                    {scannedItems.length > 100 && (
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 flex items-center text-sm text-yellow-800">
+                             <Info size={16} className="mr-2 flex-shrink-0" />
+                             <span>
+                                 დიდი მოცულობის ფაილია ({scannedItems.length} ჩანაწერი). სისტემის სისწრაფისთვის ნაჩვენებია მხოლოდ პირველი 100 ჩანაწერი, მაგრამ იმპორტი სრულად მოხდება.
+                             </span>
+                        </div>
+                    )}
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <div className="overflow-x-auto max-h-[60vh]">
@@ -254,7 +267,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {scannedItems.map((item, idx) => {
+                                    {scannedItems.slice(0, renderLimit).map((item, idx) => {
                                         const bgColor = duplicateColorMap[idx] || (item.selected ? 'bg-white' : 'bg-gray-50');
                                         const opacityClass = item.selected ? 'opacity-100' : 'opacity-50 grayscale';
                                         
@@ -326,6 +339,11 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onImport })
                                     })}
                                 </tbody>
                             </table>
+                            {scannedItems.length > renderLimit && (
+                                <div className="p-4 text-center text-gray-500 text-sm bg-gray-50">
+                                    ...და კიდევ {scannedItems.length - renderLimit} ჩანაწერი
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

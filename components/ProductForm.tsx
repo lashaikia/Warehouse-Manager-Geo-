@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, Unit } from '../types';
 import { Save, X, Camera, Image as ImageIcon, ChevronDown, Calendar, Loader2, Scale, ScanLine, UploadCloud } from 'lucide-react';
-import { getOptions, saveOption } from '../services/storage';
+import { getOptions, saveOption, getProducts, batchSaveProducts } from '../services/storage';
 import { ScannerModal } from './ScannerModal';
 import { ScannedItem } from '../services/aiScanner';
 
@@ -34,6 +34,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState('');
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -108,29 +109,38 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
   const handleBulkImport = async (items: ScannedItem[]) => {
       setIsScannerOpen(false);
       setBulkProcessing(true);
+      setBulkStatus("მოწმდება დუბლირებები...");
       
       try {
-          // 1. Identify new Categories, Units AND Warehouses
-          const uniqueCats = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
-          const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
-          const uniqueWarehouses = Array.from(new Set(items.map(i => i.warehouse).filter(Boolean)));
+          // 1. Fetch ALL existing products to check for duplicates
+          // This ensures we have the latest DB state
+          const existingProducts = await getProducts();
+          const existingNomenclatures = new Set(existingProducts.map(p => p.nomenclature.trim().toLowerCase()));
+          const existingNames = new Set(existingProducts.map(p => p.name.trim().toLowerCase()));
 
-          // 2. Auto-save them to settings if they don't exist
-          for (const cat of uniqueCats) {
-             await saveOption('categories', cat);
-          }
-          for (const unit of uniqueUnits) {
-             await saveOption('units', unit);
-          }
-          for (const wh of uniqueWarehouses) {
-             await saveOption('warehouses', wh);
-          }
+          // 2. Filter new items
+          const productsToAdd: Omit<Product, 'id' | 'lastUpdated'>[] = [];
+          let skippedCount = 0;
 
-          // 3. Process Items
+          // Identify new options to save
+          const newCats = new Set<string>();
+          const newUnits = new Set<string>();
+          const newWarehouses = new Set<string>();
+
           for (const item of items) {
-              const productData: Omit<Product, 'id' | 'lastUpdated'> = {
-                  nomenclature: item.nomenclature,
-                  name: item.name,
+              const cleanNom = item.nomenclature.trim().toLowerCase();
+              const cleanName = item.name.trim().toLowerCase();
+
+              // Check if exists
+              if (existingNomenclatures.has(cleanNom) || existingNames.has(cleanName)) {
+                  skippedCount++;
+                  continue;
+              }
+
+              // Add to queue
+              productsToAdd.push({
+                  nomenclature: item.nomenclature.trim(),
+                  name: item.name.trim(),
                   category: item.category || formData.category || 'სხვა',
                   quantity: item.quantity,
                   unit: item.unit || 'ცალი',
@@ -139,14 +149,37 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
                   minQuantity: formData.minQuantity,
                   dateAdded: formData.dateAdded,
                   images: [],
-                  isLowStockTracked: false // Explicitly disabled for bulk import
-              };
-              await onSubmit(productData);
+                  isLowStockTracked: false 
+              });
+
+              // Track options to update settings
+              if (item.category) newCats.add(item.category);
+              if (item.unit) newUnits.add(item.unit);
+              if (item.warehouse) newWarehouses.add(item.warehouse);
           }
+
+          // 3. Save Settings Options (Parallel)
+          setBulkStatus("ახლდება პარამეტრები...");
+          const optionPromises: Promise<any>[] = [];
+          newCats.forEach(c => optionPromises.push(saveOption('categories', c)));
+          newUnits.forEach(u => optionPromises.push(saveOption('units', u)));
+          newWarehouses.forEach(w => optionPromises.push(saveOption('warehouses', w)));
+          await Promise.all(optionPromises);
+
+          // 4. Batch Save Products
+          if (productsToAdd.length > 0) {
+              setBulkStatus(`იწერება ${productsToAdd.length} ჩანაწერი...`);
+              await batchSaveProducts(productsToAdd);
+              alert(`იმპორტი დასრულდა!\n\nდაემატა: ${productsToAdd.length}\nგამოტოვებულია (დუბლირება): ${skippedCount}`);
+              window.location.reload(); // Refresh to show new data
+          } else {
+              alert(`არაფერია დასამატებელი.\nყველა ჩანაწერი (${skippedCount}) უკვე არსებობს ბაზაში.`);
+              setBulkProcessing(false);
+          }
+
       } catch (e) {
           console.error("Bulk save error", e);
           alert("შეცდომა ჯგუფური შენახვისას");
-      } finally {
           setBulkProcessing(false);
       }
   };
@@ -155,8 +188,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit,
       return (
           <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in">
               <Loader2 size={64} className="text-indigo-600 animate-spin mb-6" />
-              <h2 className="text-2xl font-bold text-gray-800">მიმდინარეობს იმპორტი და კატეგორიების განახლება...</h2>
-              <p className="text-gray-500 mt-2">გთხოვთ დაელოდოთ</p>
+              <h2 className="text-2xl font-bold text-gray-800">მიმდინარეობს იმპორტი...</h2>
+              <p className="text-gray-500 mt-2 font-medium">{bulkStatus}</p>
+              <p className="text-xs text-gray-400 mt-4">გთხოვთ არ დახუროთ ფანჯარა</p>
           </div>
       );
   }

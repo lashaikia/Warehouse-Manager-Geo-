@@ -33,9 +33,7 @@ const sanitizeData = (data: any): any => {
   }
   
   // Check for Firestore DocumentReference / CollectionReference / Query
-  // They typically have a 'firestore' property and a 'path' or 'type'.
   if (data.firestore && (data.path || data.type)) {
-    // If it has an ID, return that, otherwise path, or just string repr
     return data.id || data.path || String(data);
   }
   
@@ -49,7 +47,6 @@ const sanitizeData = (data: any): any => {
 
   const clean: any = {};
   for (const [key, value] of Object.entries(data)) {
-    // Skip internal firestore properties just in case, though sanitizing value should catch it
     if (key === 'firestore' || typeof value === 'function') continue;
     clean[key] = sanitizeData(value);
   }
@@ -171,6 +168,38 @@ export const saveProduct = async (product: Omit<Product, 'id' | 'lastUpdated'>):
   };
   const docRef = await addDoc(collection(db, COLLS.PRODUCTS), newProduct);
   return { ...newProduct, id: docRef.id };
+};
+
+// ** NEW: Optimized Batch Save for large imports **
+export const batchSaveProducts = async (products: Omit<Product, 'id' | 'lastUpdated'>[]) => {
+  const BATCH_SIZE = 450; // Firestore limit is 500, keeping it safe
+  const chunks = [];
+  
+  for (let i = 0; i < products.length; i += BATCH_SIZE) {
+    chunks.push(products.slice(i, i + BATCH_SIZE));
+  }
+
+  let totalProcessed = 0;
+
+  for (const chunk of chunks) {
+    const batch = writeBatch(db);
+    
+    chunk.forEach(prod => {
+       const newDocRef = doc(collection(db, COLLS.PRODUCTS));
+       const dataToSave = {
+           ...prod,
+           lastUpdated: new Date().toISOString(),
+           // We can also store the ID in the doc if needed, but 'mapDoc' handles it usually.
+           // However, to ensure consistency with our app logic:
+       };
+       batch.set(newDocRef, dataToSave);
+    });
+
+    await batch.commit();
+    totalProcessed += chunk.length;
+  }
+  
+  return totalProcessed;
 };
 
 export const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product[]> => {
