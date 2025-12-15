@@ -33,14 +33,13 @@ const COLLS = {
 // --- Helper Functions ---
 
 /**
- * FIXED SANITIZER for Firestore "Circular Structure" Errors (Q$1, Sa, etc.)
+ * ULTRA-STRICT SANITIZER
+ * Fixes "Converting circular structure to JSON" errors (Q$1, Sa, etc.)
  * 
  * Strategy:
  * 1. Cycle detection with WeakSet.
- * 2. AGGRESSIVE FILTERING:
- *    - Check constructor.name (Must be 'Object') -> Catches Q$1, Sa, DocumentReference
- *    - Check prototype (Must be Object.prototype or null)
- *    - Check known Firestore internal keys
+ * 2. ONLY Allow Primitives, Arrays, and Plain Objects (POJOs).
+ * 3. REJECT everything else (Classes, DOM Nodes, Firestore Internals).
  */
 const sanitizeData = (data: any): any => {
   const seen = new WeakSet();
@@ -56,7 +55,7 @@ const sanitizeData = (data: any): any => {
       return value.toISOString();
     }
 
-    // 3. Firestore Timestamp (duck typing)
+    // 3. Firestore Timestamp / Objects with toDate()
     if (typeof value.toDate === 'function') {
        try { return value.toDate().toISOString(); } catch { return null; }
     }
@@ -72,27 +71,25 @@ const sanitizeData = (data: any): any => {
       return value.map(process);
     }
 
-    // 6. AGGRESSIVE CLASS INSTANCE CHECK
-    // This catches 'Q$1', 'Sa', 'DocumentReference' because their constructor.name is NOT 'Object'.
-    // This is the most effective fix for the circular JSON error in minified builds.
-    if (value.constructor && value.constructor.name !== 'Object') {
-       // Try to salvage ID if it exists (e.g. for References)
+    // 6. STRICT POJO CHECK
+    // We strictly check for Object constructor. 
+    // This filters out Firestore 'Query', 'CollectionReference', etc. which have their own constructors.
+    const isPlainObject = (
+      (value.constructor === Object) || 
+      (value.constructor === undefined && Object.getPrototypeOf(value) === null)
+    );
+
+    if (!isPlainObject) {
+       // It's a complex object. Try to keep ID if it exists (for References).
        if (value.id && typeof value.id === 'string') return value.id;
        return null;
     }
 
-    // 7. Prototype Check (Backup)
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== null && proto !== Object.prototype) {
-       if (value.id && typeof value.id === 'string') return value.id;
-       return null;
-    }
-
-    // 8. Plain Object Recursion
+    // 7. Recursive Process
     const result: any = {};
     for (const key in value) {
-      // Block known internal/private keys
-      if (key.startsWith('_') || key === 'firestore' || key === 'app' || key === 'metadata' || key === 'converter') continue;
+      // Skip internal keys just in case
+      if (key.startsWith('_') || key === 'firestore' || key === 'app' || key === 'metadata') continue;
 
       if (Object.prototype.hasOwnProperty.call(value, key)) {
           const val = process(value[key]);
@@ -109,7 +106,6 @@ const sanitizeData = (data: any): any => {
 
 const mapDoc = (doc: any) => {
   const data = doc.data();
-  // Sanitize immediately to ensure no circular refs enter the app state
   const cleanData = sanitizeData(data);
   return { ...cleanData, id: doc.id };
 };
@@ -171,16 +167,16 @@ export const login = async (username: string, password: string): Promise<User | 
     try {
         localStorage.setItem('wm_session_user', JSON.stringify(safeUser));
     } catch (e) {
-        console.error("Session save failed - forcing minimal user object", e);
-        // Fallback: manually construct minimal safe user object if deep sanitize failed
-        const fallbackUser = { 
+        console.error("Session save failed", e);
+        // Minimal fallback
+        const fallback = { 
             id: String(rawUser.id), 
+            username: String(rawUser.username), 
             name: String(rawUser.name), 
-            role: String(rawUser.role) as any, 
-            username: String(rawUser.username) 
+            role: String(rawUser.role) 
         };
-        localStorage.setItem('wm_session_user', JSON.stringify(fallbackUser));
-        return fallbackUser as User;
+        localStorage.setItem('wm_session_user', JSON.stringify(fallback));
+        return fallback as User;
     }
     return safeUser as User;
   }
@@ -222,7 +218,7 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
     try {
         localStorage.setItem('wm_session_user', JSON.stringify(safeUser));
     } catch (e) {
-        console.error("Failed to update session storage", e);
+        console.error("Failed to update session", e);
     }
   }
 
@@ -231,7 +227,6 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
 
 // --- Products ---
 
-// Get ALL products (Used for Dashboard / Exports / Form Autocomplete)
 export const getProducts = async (): Promise<Product[]> => {
   const q = query(collection(db, COLLS.PRODUCTS), orderBy('lastUpdated', 'desc')); 
   const snapshot = await getDocs(q);
@@ -239,7 +234,6 @@ export const getProducts = async (): Promise<Product[]> => {
   return products;
 };
 
-// PAGINATED Products Fetch
 export const getProductsPaginated = async (
   pageSize: number, 
   lastDoc: any = null,
@@ -249,7 +243,6 @@ export const getProductsPaginated = async (
   let constraints: QueryConstraint[] = [];
   
   if (searchQuery) {
-     // Basic search: Filters by Nomenclature OR Name (Prefix)
      constraints.push(where('nomenclature', '>=', searchQuery));
      constraints.push(where('nomenclature', '<=', searchQuery + '\uf8ff'));
      constraints.push(orderBy('nomenclature'));
@@ -272,10 +265,8 @@ export const getProductsPaginated = async (
   return { products, lastDoc: lastVisible };
 };
 
-// OPTIMIZED: Uses Cached Counter to avoid "Quota exceeded"
 export const getProductsCount = async (): Promise<number> => {
     try {
-        // Try to read from stats document first (1 Read)
         const statsRef = doc(db, COLLS.SETTINGS, 'stats');
         const statsSnap = await getDoc(statsRef);
         
@@ -283,18 +274,16 @@ export const getProductsCount = async (): Promise<number> => {
           return statsSnap.data().productCount;
         }
 
-        // Fallback: If stats doc missing, perform heavy count (1 Aggregation Query)
         const coll = collection(db, COLLS.PRODUCTS);
         const snapshot = await getCountFromServer(coll);
         const count = snapshot.data().count;
         
-        // Initialize cache for next time
         await setDoc(statsRef, { productCount: count }, { merge: true });
         
         return count;
     } catch (e) {
-        console.error("Failed to get count (likely quota or network)", e);
-        return 0; // Fail gracefully
+        console.error("Failed to get count", e);
+        return 0;
     }
 };
 
@@ -306,7 +295,6 @@ export const saveProduct = async (product: Omit<Product, 'id' | 'lastUpdated'>):
   const cleanProduct = sanitizeData(newProduct);
   const docRef = await addDoc(collection(db, COLLS.PRODUCTS), cleanProduct);
 
-  // Update Stats Counter
   try {
       const statsRef = doc(db, COLLS.SETTINGS, 'stats');
       await setDoc(statsRef, { productCount: increment(1) }, { merge: true });
@@ -315,7 +303,6 @@ export const saveProduct = async (product: Omit<Product, 'id' | 'lastUpdated'>):
   return { ...cleanProduct, id: docRef.id };
 };
 
-// ** Optimized Batch Save **
 export const batchSaveProducts = async (products: Omit<Product, 'id' | 'lastUpdated'>[]) => {
   const BATCH_SIZE = 100; 
   const chunks = [];
@@ -344,11 +331,10 @@ export const batchSaveProducts = async (products: Omit<Product, 'id' | 'lastUpda
         
         await new Promise(resolve => setTimeout(resolve, 100));
     } catch (e) {
-        console.error("Batch write failed for chunk", e);
+        console.error("Batch write failed", e);
     }
   }
 
-  // Update Stats Counter with Total
   if (totalProcessed > 0) {
       try {
           const statsRef = doc(db, COLLS.SETTINGS, 'stats');
@@ -371,8 +357,6 @@ export const updateProduct = async (id: string, updates: Partial<Product>): Prom
 
 export const deleteProduct = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLS.PRODUCTS, id));
-  
-  // Update Stats Counter
   try {
       const statsRef = doc(db, COLLS.SETTINGS, 'stats');
       await setDoc(statsRef, { productCount: increment(-1) }, { merge: true });
@@ -531,7 +515,6 @@ export const clearTransactionsCollection = async () => {
 export const clearOperationalData = async () => {
   const p = await clearProductsCollection();
   const t = await clearTransactionsCollection();
-  // Reset Stats
   try {
       const statsRef = doc(db, COLLS.SETTINGS, 'stats');
       await setDoc(statsRef, { productCount: 0 }, { merge: true });
@@ -555,7 +538,6 @@ export const getDatabaseJSON = async () => {
   };
   
   try {
-      // Final sanity check before stringify
       const safeData = sanitizeData(data);
       return JSON.stringify(safeData, null, 2);
   } catch (e) {
