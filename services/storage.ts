@@ -13,6 +13,12 @@ import {
   setDoc,
   getDoc,
   writeBatch,
+  limit,
+  startAfter,
+  orderBy,
+  getCountFromServer,
+  QueryConstraint,
+  increment
 } from 'firebase/firestore';
 
 // Collection Names
@@ -31,9 +37,10 @@ const COLLS = {
  * 
  * Strategy:
  * 1. Cycle detection with WeakSet.
- * 2. STRICT Constructor Check: If an object's constructor name is NOT 'Object', 
- *    it is treated as an internal class instance and blocked (except for Date).
- * 3. Extracts .id from Reference-like objects if possible.
+ * 2. AGGRESSIVE FILTERING:
+ *    - Check constructor.name (Must be 'Object') -> Catches Q$1, Sa, DocumentReference
+ *    - Check prototype (Must be Object.prototype or null)
+ *    - Check known Firestore internal keys
  */
 const sanitizeData = (data: any): any => {
   const seen = new WeakSet();
@@ -65,18 +72,26 @@ const sanitizeData = (data: any): any => {
       return value.map(process);
     }
 
-    // 6. STRICT Object Check
-    // This catches 'Q$1', 'Sa', 'DocumentReference' because their constructor.name !== 'Object'
+    // 6. AGGRESSIVE CLASS INSTANCE CHECK
+    // This catches 'Q$1', 'Sa', 'DocumentReference' because their constructor.name is NOT 'Object'.
+    // This is the most effective fix for the circular JSON error in minified builds.
     if (value.constructor && value.constructor.name !== 'Object') {
-       // It's a complex object. Try to salvage ID if it exists.
+       // Try to salvage ID if it exists (e.g. for References)
        if (value.id && typeof value.id === 'string') return value.id;
        return null;
     }
 
-    // 7. Plain Object Recursion
+    // 7. Prototype Check (Backup)
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== null && proto !== Object.prototype) {
+       if (value.id && typeof value.id === 'string') return value.id;
+       return null;
+    }
+
+    // 8. Plain Object Recursion
     const result: any = {};
     for (const key in value) {
-      // Block known internal keys
+      // Block known internal/private keys
       if (key.startsWith('_') || key === 'firestore' || key === 'app' || key === 'metadata' || key === 'converter') continue;
 
       if (Object.prototype.hasOwnProperty.call(value, key)) {
@@ -215,11 +230,72 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
 };
 
 // --- Products ---
+
+// Get ALL products (Used for Dashboard / Exports / Form Autocomplete)
 export const getProducts = async (): Promise<Product[]> => {
-  const q = query(collection(db, COLLS.PRODUCTS)); 
+  const q = query(collection(db, COLLS.PRODUCTS), orderBy('lastUpdated', 'desc')); 
   const snapshot = await getDocs(q);
   const products = snapshot.docs.map(mapDoc) as Product[];
-  return products.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+  return products;
+};
+
+// PAGINATED Products Fetch
+export const getProductsPaginated = async (
+  pageSize: number, 
+  lastDoc: any = null,
+  searchQuery: string = ''
+): Promise<{ products: Product[], lastDoc: any }> => {
+  
+  let constraints: QueryConstraint[] = [];
+  
+  if (searchQuery) {
+     // Basic search: Filters by Nomenclature OR Name (Prefix)
+     constraints.push(where('nomenclature', '>=', searchQuery));
+     constraints.push(where('nomenclature', '<=', searchQuery + '\uf8ff'));
+     constraints.push(orderBy('nomenclature'));
+  } else {
+     constraints.push(orderBy('lastUpdated', 'desc'));
+  }
+
+  constraints.push(limit(pageSize));
+
+  if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
+  }
+
+  const q = query(collection(db, COLLS.PRODUCTS), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  const products = snapshot.docs.map(mapDoc) as Product[];
+  const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
+  return { products, lastDoc: lastVisible };
+};
+
+// OPTIMIZED: Uses Cached Counter to avoid "Quota exceeded"
+export const getProductsCount = async (): Promise<number> => {
+    try {
+        // Try to read from stats document first (1 Read)
+        const statsRef = doc(db, COLLS.SETTINGS, 'stats');
+        const statsSnap = await getDoc(statsRef);
+        
+        if (statsSnap.exists() && typeof statsSnap.data().productCount === 'number') {
+          return statsSnap.data().productCount;
+        }
+
+        // Fallback: If stats doc missing, perform heavy count (1 Aggregation Query)
+        const coll = collection(db, COLLS.PRODUCTS);
+        const snapshot = await getCountFromServer(coll);
+        const count = snapshot.data().count;
+        
+        // Initialize cache for next time
+        await setDoc(statsRef, { productCount: count }, { merge: true });
+        
+        return count;
+    } catch (e) {
+        console.error("Failed to get count (likely quota or network)", e);
+        return 0; // Fail gracefully
+    }
 };
 
 export const saveProduct = async (product: Omit<Product, 'id' | 'lastUpdated'>): Promise<Product> => {
@@ -229,6 +305,13 @@ export const saveProduct = async (product: Omit<Product, 'id' | 'lastUpdated'>):
   };
   const cleanProduct = sanitizeData(newProduct);
   const docRef = await addDoc(collection(db, COLLS.PRODUCTS), cleanProduct);
+
+  // Update Stats Counter
+  try {
+      const statsRef = doc(db, COLLS.SETTINGS, 'stats');
+      await setDoc(statsRef, { productCount: increment(1) }, { merge: true });
+  } catch(e) { console.error("Stats update failed", e); }
+
   return { ...cleanProduct, id: docRef.id };
 };
 
@@ -253,7 +336,6 @@ export const batchSaveProducts = async (products: Omit<Product, 'id' | 'lastUpda
                ...prod,
                lastUpdated: new Date().toISOString(),
            };
-           // Sanitize before adding to batch to ensure no Reference objects slip through
            batch.set(newDocRef, sanitizeData(dataToSave));
         });
 
@@ -265,25 +347,36 @@ export const batchSaveProducts = async (products: Omit<Product, 'id' | 'lastUpda
         console.error("Batch write failed for chunk", e);
     }
   }
+
+  // Update Stats Counter with Total
+  if (totalProcessed > 0) {
+      try {
+          const statsRef = doc(db, COLLS.SETTINGS, 'stats');
+          await setDoc(statsRef, { productCount: increment(totalProcessed) }, { merge: true });
+      } catch(e) { console.error("Stats update failed", e); }
+  }
   
   return totalProcessed;
 };
 
-export const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product[]> => {
+export const updateProduct = async (id: string, updates: Partial<Product>): Promise<void> => {
   const prodRef = doc(db, COLLS.PRODUCTS, id);
   const cleanUpdates = sanitizeData({ 
     ...updates, 
     lastUpdated: new Date().toISOString() 
   });
   delete cleanUpdates.id;
-  
   await updateDoc(prodRef, cleanUpdates);
-  return await getProducts();
 };
 
-export const deleteProduct = async (id: string): Promise<Product[]> => {
+export const deleteProduct = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLS.PRODUCTS, id));
-  return await getProducts();
+  
+  // Update Stats Counter
+  try {
+      const statsRef = doc(db, COLLS.SETTINGS, 'stats');
+      await setDoc(statsRef, { productCount: increment(-1) }, { merge: true });
+  } catch(e) { console.error("Stats update failed", e); }
 };
 
 // --- Transactions ---
@@ -438,6 +531,11 @@ export const clearTransactionsCollection = async () => {
 export const clearOperationalData = async () => {
   const p = await clearProductsCollection();
   const t = await clearTransactionsCollection();
+  // Reset Stats
+  try {
+      const statsRef = doc(db, COLLS.SETTINGS, 'stats');
+      await setDoc(statsRef, { productCount: 0 }, { merge: true });
+  } catch (e) { /* ignore */ }
   return p && t;
 };
 

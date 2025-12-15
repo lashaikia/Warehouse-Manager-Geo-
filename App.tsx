@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, ViewState, Transaction, User, Theme } from './types';
 import { getProducts, saveProduct, updateProduct, deleteProduct, logTransaction, getCurrentUser, logout } from './services/storage';
@@ -41,11 +42,13 @@ const Logo = ({ idPrefix = 'main' }: { idPrefix?: string }) => (
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  
+  // Products state is now only loaded when needed by Dashboard or Forms (Lazy Load)
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Theme State
@@ -69,11 +72,11 @@ const App = () => {
     };
   }, []);
 
-  const loadData = async () => {
+  const loadAllProducts = async () => {
     setLoading(true);
     try {
         const data = await getProducts();
-        setProducts(data);
+        setAllProducts(data);
     } catch (e) {
         console.error("Failed to load products", e);
     } finally {
@@ -85,27 +88,37 @@ const App = () => {
     const currentUser = getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
-      loadData();
     }
   }, []);
+  
+  // Load ALL products only when views that need aggregation are active
+  useEffect(() => {
+      if (!user) return;
+      if (['dashboard', 'reports', 'custom_report', 'inbound', 'outbound'].includes(currentView)) {
+          if (allProducts.length === 0) {
+              loadAllProducts();
+          }
+      }
+  }, [currentView, user]);
 
   const handleLogin = async (loggedInUser: User) => {
     setUser(loggedInUser);
-    await loadData();
+    // Don't load data immediately, let the view effect handle it
   };
 
   const handleLogout = () => {
     logout();
     setUser(null);
     setCurrentView('dashboard');
-    setProducts([]);
+    setAllProducts([]);
   };
 
   const handleAddProduct = async (data: Omit<Product, 'id' | 'lastUpdated'>) => {
     setLoading(true);
     await saveProduct(data);
-    await loadData();
     setLoading(false);
+    // Force reload of cache if it exists
+    if(allProducts.length > 0) loadAllProducts();
     setCurrentView('inventory');
   };
 
@@ -113,9 +126,9 @@ const App = () => {
     if (editingProduct) {
       setLoading(true);
       await updateProduct(editingProduct.id, data);
-      await loadData();
       setLoading(false);
       setEditingProduct(undefined);
+      if(allProducts.length > 0) loadAllProducts();
       setCurrentView('inventory');
     }
   };
@@ -123,13 +136,14 @@ const App = () => {
   const handleDeleteProduct = async (id: string) => {
     setLoading(true);
     await deleteProduct(id);
-    await loadData();
+    if(allProducts.length > 0) loadAllProducts();
     setLoading(false);
   };
 
   const handleStockMovement = async (data: any, type: 'inbound' | 'outbound') => {
      const { productId, quantity, date, receiver, notes, images, isDebt } = data;
-     const product = products.find(p => p.id === productId);
+     // We need to find product in allProducts to get details
+     const product = allProducts.find(p => p.id === productId);
      
      if(product) {
         setLoading(true);
@@ -154,7 +168,7 @@ const App = () => {
         };
         await logTransaction(transaction);
         
-        await loadData();
+        await loadAllProducts(); // Refresh local cache
         setLoading(false);
         setCurrentView('inventory');
      }
@@ -390,11 +404,11 @@ const App = () => {
              </div>
           )}
 
-          {currentView === 'dashboard' && <Dashboard products={products} theme={theme} user={user} />}
+          {currentView === 'dashboard' && <Dashboard products={allProducts} theme={theme} user={user} />}
           
           {currentView === 'inventory' && (
             <ProductList 
-              products={products} 
+              // Removed 'products' prop - it now fetches internally
               userRole={user.role}
               onEdit={startEdit} 
               onDelete={handleDeleteProduct} 
@@ -414,7 +428,7 @@ const App = () => {
 
           {currentView === 'inbound' && (
              <StockMovementForm 
-                products={products} 
+                products={allProducts} // Needed for autocomplete
                 type="inbound" 
                 onSubmit={(data) => handleStockMovement(data, 'inbound')}
                 onCancel={() => setCurrentView('inventory')}
@@ -423,7 +437,7 @@ const App = () => {
 
           {currentView === 'outbound' && (
              <StockMovementForm 
-                products={products} 
+                products={allProducts} // Needed for autocomplete
                 type="outbound" 
                 onSubmit={(data) => handleStockMovement(data, 'outbound')}
                 onCancel={() => setCurrentView('inventory')}
@@ -431,11 +445,11 @@ const App = () => {
           )}
 
           {currentView === 'reports' && (
-            <Reports products={products} />
+            <Reports products={allProducts} />
           )}
 
           {currentView === 'custom_report' && (
-            <CustomReport products={products} />
+            <CustomReport products={allProducts} />
           )}
 
           {currentView === 'users' && isAdmin && (

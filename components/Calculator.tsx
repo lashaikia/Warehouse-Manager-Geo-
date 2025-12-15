@@ -397,7 +397,7 @@ export const Calculator: React.FC<CalculatorProps> = ({ onClose }) => {
                       <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm animate-fade-in">
                           <h4 className="text-sm font-bold text-orange-800 mb-3 flex items-center">
                               <Scale size={16} className="mr-2" />
-                              წონა -> რაოდენობა
+                              წონა &gt რაოდენობა
                           </h4>
                           <div className="space-y-3">
                               <div className="grid grid-cols-2 gap-2">

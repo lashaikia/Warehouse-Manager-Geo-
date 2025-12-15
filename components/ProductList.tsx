@@ -1,49 +1,117 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
-import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon, AlertTriangle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Search, Edit2, Trash2, AlertCircle, Image as ImageIcon, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
+import { getProductsPaginated, getProductsCount } from '../services/storage';
 
 interface ProductListProps {
-  products: Product[];
   userRole: Role;
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
 }
 
-export const ProductList: React.FC<ProductListProps> = ({ products, userRole, onEdit, onDelete }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+export const ProductList: React.FC<ProductListProps> = ({ userRole, onEdit, onDelete }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Pagination State
+  const ITEMS_PER_PAGE = 100;
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageStack, setPageStack] = useState<any[]>([null]); // Stack of 'lastDoc' for previous pages
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100;
+  
+  // Search State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
 
-  // Filter products
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = 
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.nomenclature.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Inventory usually shows everything including zero stock, but if you want only active:
-    // return matchesSearch && product.quantity > 0;
-    // Keeping it showing all for inventory management purposes:
-    return matchesSearch;
-  });
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Reset to page 1 when search changes
+  const fetchProducts = async (pageIdx: number, lastDoc: any = null, search: string = '') => {
+    setLoading(true);
+    try {
+        const result = await getProductsPaginated(ITEMS_PER_PAGE, lastDoc, search);
+        setProducts(result.products);
+        
+        // Update Stack if going forward
+        if (pageIdx >= pageStack.length) {
+            setPageStack(prev => [...prev, result.lastDoc]);
+        }
+    } catch (error) {
+        console.error("Failed to fetch products", error);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const fetchCount = async () => {
+      try {
+          const count = await getProductsCount();
+          setTotalItems(count);
+      } catch (e) {
+          console.error("Failed to get count", e);
+      }
+  };
+
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+    fetchCount();
+    fetchProducts(0, null, '');
+  }, []);
 
-  // Calculate Pagination
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+  // Search Handler
+  const handleSearch = (e: React.FormEvent) => {
+      e.preventDefault();
+      // Reset pagination
+      setPageStack([null]);
+      setCurrentPage(1);
+      setActiveSearch(searchTerm);
+      fetchProducts(1, null, searchTerm);
+  };
+
+  const clearSearch = () => {
+      setSearchTerm('');
+      setActiveSearch('');
+      setPageStack([null]);
+      setCurrentPage(1);
+      fetchProducts(1, null, '');
+      fetchCount();
+  };
+
+  const handleNextPage = () => {
+      const nextPageIndex = currentPage; // 0-based index for stack is currentPage
+      const lastDoc = pageStack[nextPageIndex];
+      if (lastDoc || (products.length === ITEMS_PER_PAGE)) {
+          setCurrentPage(prev => prev + 1);
+          fetchProducts(nextPageIndex + 1, lastDoc, activeSearch);
+      }
+  };
+
+  const handlePrevPage = () => {
+      if (currentPage > 1) {
+          const prevPageIndex = currentPage - 2; // Target index in stack
+          const lastDoc = pageStack[prevPageIndex];
+          setCurrentPage(prev => prev - 1);
+          // Truncate stack forward history to avoid stale cursors if data changed? 
+          // Firestore cursors are snapshot based, usually fine.
+          fetchProducts(prevPageIndex + 1, lastDoc, activeSearch);
+      }
+  };
+  
+  const handleRefresh = () => {
+      const lastDoc = pageStack[currentPage - 1];
+      fetchProducts(currentPage, lastDoc, activeSearch);
+      fetchCount();
+  };
+
+  const confirmDelete = async () => {
+      if (productToDelete) {
+          setIsDeleting(true);
+          await onDelete(productToDelete.id);
+          setIsDeleting(false);
+          setProductToDelete(null);
+          handleRefresh(); // Reload current page
+      }
+  };
 
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const canDelete = userRole === 'admin';
@@ -57,42 +125,47 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
     }
   };
 
-  const confirmDelete = async () => {
-      if (productToDelete) {
-          setIsDeleting(true);
-          await onDelete(productToDelete.id);
-          setIsDeleting(false);
-          setProductToDelete(null);
-      }
-  };
-
-  // Pagination Handlers
-  const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  const firstPage = () => setCurrentPage(1);
-  const lastPage = () => setCurrentPage(totalPages);
-
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
         <div>
-            <h2 className="text-2xl font-bold text-gray-800">საწყობის მარაგები</h2>
-            <p className="text-sm text-gray-500">სულ: {totalItems} ჩანაწერი</p>
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                საწყობის მარაგები
+                {loading && <Loader2 size={20} className="ml-3 animate-spin text-gray-400" />}
+            </h2>
+            <p className="text-sm text-gray-500">სულ: {activeSearch ? 'ნაპოვნია...' : `${totalItems} ჩანაწერი`}</p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="ძებნა (სახელი, კოდი, საწყობი)..." 
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-2 w-full md:w-auto">
+            <form onSubmit={handleSearch} className="relative flex-1 md:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                    type="text" 
+                    placeholder="ძებნა ნომენკლატურით..." 
+                    className="w-full pl-10 pr-10 py-2 border border-gray-200 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm font-mono"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                    <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <X size={16} />
+                    </button>
+                )}
+            </form>
+            <button onClick={handleSearch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                ძებნა
+            </button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+        {activeSearch && (
+            <div className="bg-blue-50 px-4 py-2 text-sm text-blue-700 flex justify-between items-center">
+                <span>ძებნის შედეგები: <strong>"{activeSearch}"</strong></span>
+                <button onClick={clearSearch} className="text-xs underline hover:text-blue-900">გასუფთავება</button>
+            </div>
+        )}
+        
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold">
@@ -107,11 +180,20 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {currentItems.length > 0 ? (
-                currentItems.map((product, index) => {
+              {loading ? (
+                 <tr>
+                     <td colSpan={8} className="p-12 text-center text-gray-400">
+                         <div className="flex flex-col items-center">
+                             <Loader2 size={32} className="animate-spin mb-2" />
+                             იტვირთება მონაცემები...
+                         </div>
+                     </td>
+                 </tr>
+              ) : products.length > 0 ? (
+                products.map((product, index) => {
                   const isLowStock = product.isLowStockTracked && (product.quantity <= product.minQuantity);
                   const hasImage = product.images && product.images.length > 0;
-                  const globalIndex = indexOfFirstItem + index + 1;
+                  const globalIndex = ((currentPage - 1) * ITEMS_PER_PAGE) + index + 1;
 
                   return (
                     <tr key={product.id} className="hover:bg-gray-50 transition-colors">
@@ -187,7 +269,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
               ) : (
                 <tr>
                   <td colSpan={canEdit || canDelete ? 8 : 7} className="p-8 text-center text-gray-500">
-                    {searchTerm ? 'მონაცემები ვერ მოიძებნა' : 'საწყობი ცარიელია'}
+                    {activeSearch ? 'ვერაფერი მოიძებნა' : 'საწყობი ცარიელია'}
                   </td>
                 </tr>
               )}
@@ -196,53 +278,36 @@ export const ProductList: React.FC<ProductListProps> = ({ products, userRole, on
         </div>
         
         {/* Pagination Controls */}
-        {totalPages > 1 && (
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center space-x-4">
+                <button onClick={handleRefresh} className="p-2 text-gray-500 hover:bg-white rounded border border-transparent hover:border-gray-200 transition" title="განახლება">
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
                 <span className="text-sm text-gray-500">
-                    ნაჩვენებია {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, totalItems)} / {totalItems}
+                    გვერდი {currentPage}
                 </span>
-                
-                <div className="flex items-center space-x-2">
-                    <button 
-                        onClick={firstPage}
-                        disabled={currentPage === 1}
-                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
-                        title="პირველი გვერდი"
-                    >
-                        <ChevronsLeft size={16} />
-                    </button>
-                    <button 
-                        onClick={prevPage}
-                        disabled={currentPage === 1}
-                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
-                        title="წინა"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    
-                    <span className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg">
-                        გვერდი {currentPage} / {totalPages}
-                    </span>
-
-                    <button 
-                        onClick={nextPage}
-                        disabled={currentPage === totalPages}
-                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
-                        title="შემდეგი"
-                    >
-                        <ChevronRight size={16} />
-                    </button>
-                    <button 
-                        onClick={lastPage}
-                        disabled={currentPage === totalPages}
-                        className="p-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600"
-                        title="ბოლო გვერდი"
-                    >
-                        <ChevronsRight size={16} />
-                    </button>
-                </div>
             </div>
-        )}
+            
+            <div className="flex items-center space-x-2">
+                <button 
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1 || loading}
+                    className="flex items-center px-4 py-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600 text-sm font-medium transition"
+                >
+                    <ChevronLeft size={16} className="mr-1" />
+                    წინა
+                </button>
+
+                <button 
+                    onClick={handleNextPage}
+                    disabled={products.length < ITEMS_PER_PAGE || loading}
+                    className="flex items-center px-4 py-2 rounded-lg border bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 text-gray-600 text-sm font-medium transition"
+                >
+                    შემდეგი
+                    <ChevronRight size={16} className="ml-1" />
+                </button>
+            </div>
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
