@@ -30,78 +30,86 @@ const COLLS = {
   USER_NOTES: 'user_notes'
 };
 
-// --- Helper Functions ---
+// --- NUCLEAR SANITIZER V3 (The "Iron Dome") ---
 
 /**
- * ULTRA-STRICT SANITIZER
- * Fixes "Converting circular structure to JSON" errors (Q$1, Sa, etc.)
- * 
- * Strategy:
- * 1. Cycle detection with WeakSet.
- * 2. ONLY Allow Primitives, Arrays, and Plain Objects (POJOs).
- * 3. REJECT everything else (Classes, DOM Nodes, Firestore Internals).
+ * Checks if a value is a true Plain Old JavaScript Object (POJO).
+ * This filters out Firestore References, Snapshots, DOM nodes, etc.
  */
-const sanitizeData = (data: any): any => {
-  const seen = new WeakSet();
+const isPlainObject = (value: any): boolean => {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
 
-  const process = (value: any): any => {
-    // 1. Primitives
-    if (value === null || typeof value !== 'object') {
-      return value;
-    }
+/**
+ * Recursive sanitizer that ONLY allows primitives and plain objects/arrays.
+ * It ruthlessly discards anything else to prevent Circular Structure errors.
+ */
+const sanitizeData = (data: any, depth = 0): any => {
+  // 0. Hard depth limit to prevent infinite recursion
+  if (depth > 10) return null;
 
-    // 2. Dates
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
+  // 1. Primitives (pass through)
+  if (data === null || data === undefined) return data;
+  if (typeof data !== 'object') return data;
 
-    // 3. Firestore Timestamp / Objects with toDate()
-    if (typeof value.toDate === 'function') {
-       try { return value.toDate().toISOString(); } catch { return null; }
-    }
+  // 2. Dates -> String
+  if (data instanceof Date) return data.toISOString();
 
-    // 4. Cycle Detection
-    if (seen.has(value)) {
+  // 3. Firestore Timestamp (Duck typing)
+  if (typeof data.toDate === 'function') {
+     try { return data.toDate().toISOString(); } catch { return null; }
+  }
+
+  // 4. Arrays -> Map recursively
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeData(item, depth + 1));
+  }
+
+  // 5. CRITICAL: Filter out Non-Plain Objects (Firestore References, etc.)
+  if (!isPlainObject(data)) {
+      // Try to rescue 'id' if it's a reference-like object
+      if (data.id && typeof data.id === 'string') return data.id;
       return null;
+  }
+
+  // 6. Plain Objects -> Reconstruct safely
+  const safeObj: any = {};
+  for (const key in data) {
+    // Skip internal keys used by Firestore/Frameworks
+    if (key.startsWith('_') || key.startsWith('$')) continue;
+    if (['firestore', 'metadata', 'app', 'auth', 'database'].includes(key)) continue;
+
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+        try {
+            const val = sanitizeData(data[key], depth + 1);
+            if (val !== undefined) {
+                safeObj[key] = val;
+            }
+        } catch (e) {
+            continue;
+        }
     }
-    seen.add(value);
+  }
+  return safeObj;
+};
 
-    // 5. Arrays
-    if (Array.isArray(value)) {
-      return value.map(process);
+/**
+ * Wrapper to safely save to localStorage without crashing app
+ */
+const tryStoreSession = (key: string, data: any) => {
+    try {
+        const clean = sanitizeData(data);
+        localStorage.setItem(key, JSON.stringify(clean));
+    } catch (e) {
+        console.error("Storage Error (Circular Ref prevented):", e);
+        // Fallback: Save minimal info if possible
+        if (data && data.id) {
+            const fallback = { id: data.id, role: data.role, name: data.name || 'User' };
+            localStorage.setItem(key, JSON.stringify(fallback));
+        }
     }
-
-    // 6. STRICT POJO CHECK
-    // We strictly check for Object constructor. 
-    // This filters out Firestore 'Query', 'CollectionReference', etc. which have their own constructors.
-    const isPlainObject = (
-      (value.constructor === Object) || 
-      (value.constructor === undefined && Object.getPrototypeOf(value) === null)
-    );
-
-    if (!isPlainObject) {
-       // It's a complex object. Try to keep ID if it exists (for References).
-       if (value.id && typeof value.id === 'string') return value.id;
-       return null;
-    }
-
-    // 7. Recursive Process
-    const result: any = {};
-    for (const key in value) {
-      // Skip internal keys just in case
-      if (key.startsWith('_') || key === 'firestore' || key === 'app' || key === 'metadata') continue;
-
-      if (Object.prototype.hasOwnProperty.call(value, key)) {
-          const val = process(value[key]);
-          if (val !== undefined) {
-              result[key] = val;
-          }
-      }
-    }
-    return result;
-  };
-
-  return process(data);
 };
 
 const mapDoc = (doc: any) => {
@@ -162,23 +170,9 @@ export const login = async (username: string, password: string): Promise<User | 
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     const rawUser = mapDoc(snapshot.docs[0]);
-    const safeUser = sanitizeData(rawUser);
-    
-    try {
-        localStorage.setItem('wm_session_user', JSON.stringify(safeUser));
-    } catch (e) {
-        console.error("Session save failed", e);
-        // Minimal fallback
-        const fallback = { 
-            id: String(rawUser.id), 
-            username: String(rawUser.username), 
-            name: String(rawUser.name), 
-            role: String(rawUser.role) 
-        };
-        localStorage.setItem('wm_session_user', JSON.stringify(fallback));
-        return fallback as User;
-    }
-    return safeUser as User;
+    // Use Safe Storage Wrapper
+    tryStoreSession('wm_session_user', rawUser);
+    return rawUser as User;
   }
   return null;
 };
@@ -214,12 +208,7 @@ export const changePassword = async (userId: string, oldPass: string, newPass: s
   const currentUser = getCurrentUser();
   if (currentUser && currentUser.id === userId) {
     const updatedUser = { ...currentUser, password: newPass };
-    const safeUser = sanitizeData(updatedUser);
-    try {
-        localStorage.setItem('wm_session_user', JSON.stringify(safeUser));
-    } catch (e) {
-        console.error("Failed to update session", e);
-    }
+    tryStoreSession('wm_session_user', updatedUser);
   }
 
   return { success: true, message: 'პაროლი წარმატებით შეიცვალა' };
